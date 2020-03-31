@@ -1,25 +1,49 @@
 {
   "name": "web3modal-checkout",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "Payment checkout with Web3Modal",
   "private": true,
-  "dependencies": {
-    "@testing-library/jest-dom": "^4.2.4",
-    "@testing-library/react": "^9.3.2",
-    "@testing-library/user-event": "^7.1.2",
-    "@types/jest": "^24.0.0",
-    "@types/node": "^12.0.0",
-    "@types/react": "^16.9.0",
-    "@types/react-dom": "^16.9.0",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1",
-    "react-scripts": "3.4.1",
-    "typescript": "~3.7.2"
+  "author": "Pedro Gomes <github.com/pedrouid>",
+  "license": "MIT",
+  "homepage": "https://github.com/pedrouid/web3modal-checkout",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrouid/web3modal-checkout.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pedrouid/web3modal-checkout/issues"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
+  },
+  "dependencies": {
+    "@portis/web3": "^2.0.0-beta.54",
+    "@testing-library/jest-dom": "^4.2.4",
+    "@testing-library/react": "^9.3.2",
+    "@testing-library/user-event": "^7.1.2",
+    "@toruslabs/torus-embed": "^1.2.6",
+    "@types/jest": "^24.0.0",
+    "@types/node": "^12.0.0",
+    "@types/react": "^16.9.0",
+    "@types/react-dom": "^16.9.0",
+    "@types/styled-components": "^5.0.1",
+    "@walletconnect/utils": "^1.0.0-beta.47",
+    "@walletconnect/web3-provider": "^1.0.0-beta.47",
+    "authereum": "^0.0.4-beta.130",
+    "axios": "^0.19.2",
+    "bignumber.js": "^9.0.0",
+    "fortmatic": "^2.0.6",
+    "prop-types": "^15.7.2",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "react-scripts": "3.4.1",
+    "styled-components": "^5.0.1",
+    "typescript": "~3.7.2",
+    "web3": "^1.2.6",
+    "web3modal": "^1.2.1"
   },
   "eslintConfig": {
     "extends": "react-app"
