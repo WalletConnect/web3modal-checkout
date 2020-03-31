@@ -3,9 +3,7 @@ import styled from "styled-components";
 import Web3 from "web3";
 
 import Web3Modal from "web3modal";
-// @ts-ignore
 import WalletConnectProvider from "@walletconnect/web3-provider";
-// @ts-ignore
 import Fortmatic from "fortmatic";
 import Torus from "@toruslabs/torus-embed";
 import Portis from "@portis/web3";
@@ -18,7 +16,12 @@ import Loader from "./components/Loader";
 import ConnectButton from "./components/ConnectButton";
 import PaymentResult from "./components/PaymentResult";
 
-import { parseQueryString, getChainData } from "./helpers/utilities";
+import {
+  parseQueryString,
+  getChainData,
+  appendToQueryString,
+  checkRequiredParams
+} from "./helpers/utilities";
 import { formatTransaction } from "./helpers/transaction";
 import { IPayment } from "./helpers/types";
 import { fonts } from "./styles";
@@ -78,7 +81,7 @@ interface IPaymentRequest {
   currency: string;
   amount: string;
   to: string;
-  // callbackUrl: string;
+  callbackUrl: string;
   data: string;
 }
 
@@ -106,58 +109,6 @@ const INITIAL_STATE: IAppState = {
 
 let accountInterval: any = null;
 
-function initWeb3(provider: any) {
-  const web3: any = new Web3(provider);
-
-  web3.eth.extend({
-    methods: [
-      {
-        name: "chainId",
-        call: "eth_chainId",
-        outputFormatter: web3.utils.hexToNumber
-      }
-    ]
-  });
-
-  return web3;
-}
-
-function loadPaymentRequest(): IPaymentRequest | null {
-  let result: IPaymentRequest | null = null;
-  if (typeof window !== "undefined") {
-    const queryString = window.location.search;
-    if (queryString && queryString.trim()) {
-      const queryParams = parseQueryString(queryString);
-      if (Object.keys(queryParams).length) {
-        if (!queryParams.currency) {
-          console.error("No Currency Value Provided"); // tslint:disable-line
-          return null;
-        }
-        if (!queryParams.amount) {
-          console.error("No Amount Value Provided"); // tslint:disable-line
-          return null;
-        }
-        if (!queryParams.to) {
-          console.error("No Address Value Provided"); // tslint:disable-line
-          return null;
-        }
-        // if (!queryParams.callbackUrl) {
-        //   console.error("No Callback Url Provided"); // tslint:disable-line
-        //   return null;
-        // }
-        result = {
-          currency: queryParams.currency,
-          amount: queryParams.amount,
-          to: queryParams.to,
-          // callbackUrl: decodeURIComponent(queryParams.callbackUrl),
-          data: queryParams.data || ""
-        };
-      }
-    }
-  }
-  return result;
-}
-
 class App extends React.Component<any, any> {
   // @ts-ignore
   public web3Modal: Web3Modal;
@@ -167,7 +118,7 @@ class App extends React.Component<any, any> {
     super(props);
     this.state = {
       ...INITIAL_STATE,
-      paymentRequest: loadPaymentRequest()
+      paymentRequest: this.getPaymentRequest()
     };
     this.web3Modal = new Web3Modal({
       network: this.getNetwork(),
@@ -181,7 +132,17 @@ class App extends React.Component<any, any> {
 
     await this.subscribeProvider(provider);
 
-    const web3: any = initWeb3(provider);
+    const web3: any = new Web3(provider);
+
+    web3.eth.extend({
+      methods: [
+        {
+          name: "chainId",
+          call: "eth_chainId",
+          outputFormatter: web3.utils.hexToNumber
+        }
+      ]
+    });
 
     const accounts = await web3.eth.getAccounts();
 
@@ -203,6 +164,32 @@ class App extends React.Component<any, any> {
   };
 
   public getNetwork = () => getChainData(this.state.chainId).network;
+
+  public getPaymentRequest = () => {
+    let result: IPaymentRequest | null = null;
+    if (typeof window !== "undefined") {
+      const queryString = window.location.search;
+      if (queryString && queryString.trim()) {
+        const queryParams = parseQueryString(queryString);
+        if (Object.keys(queryParams).length) {
+          try {
+            checkRequiredParams(queryParams, ["currency", "amount", "to"]);
+            result = {
+              currency: queryParams.currency,
+              amount: queryParams.amount,
+              to: queryParams.to,
+              callbackUrl: decodeURIComponent(queryParams.callbackUrl) || "",
+              data: queryParams.data || ""
+            };
+          } catch (error) {
+            result = null;
+            console.error(error);
+          }
+        }
+      }
+    }
+    return result;
+  };
 
   public getProviderOptions = () => {
     const providerOptions = {
@@ -278,7 +265,7 @@ class App extends React.Component<any, any> {
       }
       this.updatePaymentStatus(PAYMENT_PENDING);
       try {
-        const { currency, amount, to, data } = paymentRequest;
+        const { currency, amount, to, data, callbackUrl } = paymentRequest;
         const from = address;
         const tx = await formatTransaction(
           from,
@@ -290,12 +277,14 @@ class App extends React.Component<any, any> {
         );
         const txHash = await this.web3SendTransaction(tx);
         this.updatePaymentStatus(PAYMENT_SUCCESS, txHash);
-        // setTimeout(
-        //   () => this.redirectToCallbackUrl(),
-        //   2000 // 2 secs
-        // );
+        if (callbackUrl) {
+          setTimeout(
+            () => this.redirectToCallbackUrl(),
+            2000 // 2 secs
+          );
+        }
       } catch (error) {
-        console.error(error); // tslint:disable-line
+        console.error(error);
         return this.displayErrorMessage(error.message);
       }
     } else {
@@ -318,20 +307,20 @@ class App extends React.Component<any, any> {
     });
   };
 
-  // public redirectToCallbackUrl() {
-  //   const { paymentRequest, paymentStatus } = this.state;
-  //   if (paymentRequest && paymentStatus) {
-  //     if (typeof window !== "undefined") {
-  //       const url = appendToQueryString(paymentRequest.callbackUrl, {
-  //         txhash: paymentStatus.result,
-  //         currency: paymentRequest.currency
-  //       });
-  //       window.open(url);
-  //     } else {
-  //       return this.displayErrorMessage("Window is undefined");
-  //     }
-  //   }
-  // }
+  public redirectToCallbackUrl() {
+    const { paymentRequest, paymentStatus } = this.state;
+    if (paymentRequest && paymentStatus) {
+      if (typeof window !== "undefined") {
+        const url = appendToQueryString(paymentRequest.callbackUrl, {
+          txhash: paymentStatus.result,
+          currency: paymentRequest.currency
+        });
+        window.open(url);
+      } else {
+        return this.displayErrorMessage("Window is undefined");
+      }
+    }
+  }
 
   public checkCurrentAccount = async () => {
     const { web3, address, chainId } = this.state;

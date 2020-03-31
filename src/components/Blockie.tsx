@@ -1,12 +1,14 @@
-import * as React from 'react'
-import styled from 'styled-components'
+import * as React from "react";
+import styled from "styled-components";
+
+import blockies from "../helpers/blockies";
 
 interface IBlockieStyleProps {
-  size?: number
+  size?: number;
 }
 
 interface IBlockieProps extends IBlockieStyleProps {
-  address: string
+  address: string;
 }
 
 const SBlockieWrapper = styled.div<IBlockieStyleProps>`
@@ -20,25 +22,25 @@ const SBlockieWrapper = styled.div<IBlockieStyleProps>`
   & img {
     width: 100%;
   }
-`
+`;
 
 const Blockie = (props: IBlockieProps) => {
-  const seed = props.address.toLowerCase() || ''
-  const imgUrl = window.blockies
+  const seed = props.address.toLowerCase() || "";
+  const imgUrl = blockies
     .create({
       seed
     })
-    .toDataURL()
+    .toDataURL();
   return (
     <SBlockieWrapper size={props.size} {...props}>
       <img src={imgUrl} alt={props.address} />
     </SBlockieWrapper>
-  )
-}
+  );
+};
 
 Blockie.defaultProps = {
-  address: '0x0000000000000000000000000000000000000000',
+  address: "0x0000000000000000000000000000000000000000",
   size: 30
-}
+};
 
-export default Blockie
+export default Blockie;

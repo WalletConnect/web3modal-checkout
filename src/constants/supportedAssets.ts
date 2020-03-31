@@ -14,11 +14,17 @@ const SUPPORTED_ASSETS: ISupportedAssets = {
       decimals: "18",
       contractAddress: ""
     },
-    DAI: {
-      symbol: "DAI",
-      name: "DAI Stablecoin v1.0",
+    SAI: {
+      symbol: "SAI",
+      name: "SAI Stablecoin",
       decimals: "18",
       contractAddress: "0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359"
+    },
+    DAI: {
+      symbol: "DAI",
+      name: "DAI Stablecoin",
+      decimals: "18",
+      contractAddress: "0x6b175474e89094c44da98b954eedeac495271d0f"
     }
   },
   100: {

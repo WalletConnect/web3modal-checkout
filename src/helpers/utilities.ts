@@ -245,3 +245,11 @@ export function formatQueryString(queryParams: any): string {
 
   return result;
 }
+
+export function checkRequiredParams(params: any, requiredParams: string[]) {
+  requiredParams.forEach(x => {
+    if (!params[x]) {
+      throw new Error(`No ${capitalize(x)} Value Provided`);
+    }
+  });
+}
