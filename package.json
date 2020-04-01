@@ -5,14 +5,6 @@
   "private": true,
   "author": "Pedro Gomes <github.com/pedrouid>",
   "license": "MIT",
-  "homepage": "https://github.com/pedrouid/web3modal-checkout",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/pedrouid/web3modal-checkout.git"
-  },
-  "bugs": {
-    "url": "https://github.com/pedrouid/web3modal-checkout/issues"
-  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
