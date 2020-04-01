@@ -6,8 +6,8 @@ import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import Fortmatic from "fortmatic";
 import Torus from "@toruslabs/torus-embed";
-import Portis from "@portis/web3";
-import Authereum from "authereum";
+// import Portis from "@portis/web3";
+// import Authereum from "authereum";
 
 import Column from "./components/Column";
 import Wrapper from "./components/Wrapper";
@@ -208,17 +208,17 @@ class App extends React.Component<any, any> {
         options: {
           key: process.env.REACT_APP_FORTMATIC_KEY
         }
-      },
-      portis: {
-        package: Portis,
-        options: {
-          id: process.env.REACT_APP_PORTIS_ID
-        }
-      },
-      authereum: {
-        package: Authereum,
-        options: {}
       }
+      // portis: {
+      //   package: Portis,
+      //   options: {
+      //     id: process.env.REACT_APP_PORTIS_ID
+      //   }
+      // },
+      // authereum: {
+      //   package: Authereum,
+      //   options: {}
+      // }
     };
     return providerOptions;
   };
