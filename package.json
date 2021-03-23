@@ -22,20 +22,21 @@
     "@types/react": "^16.9.0",
     "@types/react-dom": "^16.9.0",
     "@types/styled-components": "4.1.8",
-    "@walletconnect/utils": "^1.0.0-beta.47",
-    "@walletconnect/web3-provider": "^1.0.0-beta.47",
-    "authereum": "^0.0.4-beta.130",
-    "axios": "^0.19.2",
+    "@walletconnect/utils": "^1.4.0",
+    "@walletconnect/web3-provider": "^1.4.0",
+    "authereum": "^0.1.14",
+    "axios": "^0.21.0",
     "bignumber.js": "^9.0.0",
-    "fortmatic": "^2.0.6",
+    "blockies-ts": "^1.0.0",
+    "ethers": "^5.0.32",
+    "fortmatic": "^2.2.1",
     "prop-types": "^15.7.2",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-scripts": "3.4.1",
     "styled-components": "4.2.0",
     "typescript": "~3.7.2",
-    "web3": "^1.2.6",
-    "web3modal": "^1.2.1"
+    "web3modal": "^1.9.3"
   },
   "eslintConfig": {
     "extends": "react-app"

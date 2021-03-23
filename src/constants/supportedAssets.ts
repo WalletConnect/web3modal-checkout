@@ -8,33 +8,33 @@ interface ISupportedAssets {
 
 const SUPPORTED_ASSETS: ISupportedAssets = {
   1: {
-    ETH: {
+    eth: {
       symbol: "ETH",
       name: "Ethereum",
       decimals: "18",
-      contractAddress: ""
+      contractAddress: "",
     },
-    SAI: {
+    sai: {
       symbol: "SAI",
       name: "SAI Stablecoin",
       decimals: "18",
-      contractAddress: "0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359"
+      contractAddress: "0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359",
     },
-    DAI: {
+    dai: {
       symbol: "DAI",
       name: "DAI Stablecoin",
       decimals: "18",
-      contractAddress: "0x6b175474e89094c44da98b954eedeac495271d0f"
-    }
+      contractAddress: "0x6b175474e89094c44da98b954eedeac495271d0f",
+    },
   },
   100: {
-    xDAI: {
+    xdai: {
       symbol: "xDAI",
       name: "xDAI",
       decimals: "18",
-      contractAddress: ""
-    }
-  }
+      contractAddress: "",
+    },
+  },
 };
 
 export default SUPPORTED_ASSETS;

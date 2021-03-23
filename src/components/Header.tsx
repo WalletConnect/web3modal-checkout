@@ -3,8 +3,9 @@ import styled from "styled-components";
 import * as PropTypes from "prop-types";
 import Blockie from "./Blockie";
 import Banner from "./Banner";
-import { ellipseAddress, getChainData } from "../helpers/utilities";
+import { ellipseAddress } from "../helpers/utilities";
 import { transitions } from "../styles";
+import { IChainData } from "../helpers/types";
 
 const SHeader = styled.div`
   margin-top: -1px;
@@ -76,7 +77,7 @@ interface IHeaderProps {
   killSession: () => void;
   connected: boolean;
   address: string;
-  chainId: number;
+  chain: IChainData | undefined;
 }
 
 const Header = (props: IHeaderProps) => {
@@ -84,15 +85,14 @@ const Header = (props: IHeaderProps) => {
     // killSession,
     connected,
     address,
-    chainId
+    chain,
   } = props;
-  const chainData = chainId ? getChainData(chainId) : null;
   return (
     <SHeader {...props}>
-      {connected && chainData ? (
+      {connected && chain ? (
         <SActiveChain>
           <p>{`Connected to`}</p>
-          <p>{chainData.name}</p>
+          <p>{chain.name}</p>
         </SActiveChain>
       ) : (
         <Banner />
@@ -116,7 +116,7 @@ const Header = (props: IHeaderProps) => {
 
 Header.propTypes = {
   killSession: PropTypes.func.isRequired,
-  address: PropTypes.string
+  address: PropTypes.string,
 };
 
 export default Header;

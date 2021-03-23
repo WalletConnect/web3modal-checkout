@@ -1,11 +1,7 @@
-import { IChainData } from "./types";
-import supportedChains from "./chains";
-import { convertHexToNumber } from "./bignumber";
-
 export function capitalize(string: string): string {
   return string
     .split(" ")
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }
 
@@ -22,7 +18,7 @@ export function ellipseText(
   const result =
     text
       .split(" ")
-      .filter(word => {
+      .filter((word) => {
         currentLength += word.length;
         if (ellipse || currentLength >= _maxLength) {
           ellipse = true;
@@ -113,65 +109,6 @@ export function isMobile(): boolean {
   return mobile;
 }
 
-export function getChainDataFromKey(value: any, key: string): IChainData {
-  const chainData = supportedChains.filter(
-    (chain: any) => chain[key] === value
-  )[0];
-
-  if (!chainData) {
-    throw new Error(`Chain matching ${key}=${value} missing or not supported`);
-  }
-
-  const API_KEY = process.env.REACT_APP_INFURA_ID;
-
-  if (
-    chainData.rpc_url.includes("infura.io") &&
-    chainData.rpc_url.includes("%API_KEY%") &&
-    API_KEY
-  ) {
-    const rpcUrl = chainData.rpc_url.replace("%API_KEY%", API_KEY);
-
-    return {
-      ...chainData,
-      rpc_url: rpcUrl
-    };
-  }
-
-  return chainData;
-}
-
-export function getChainData(chainId: number): IChainData {
-  return getChainDataFromKey(chainId, "chain_id");
-}
-
-export function getChainIdFromNetworkId(networkId: number): number {
-  const { chain_id } = getChainDataFromKey(networkId, "network_id");
-  return chain_id;
-}
-
-export async function queryChainId(web3: any) {
-  const chainIdRes = await web3.currentProvider.send("eth_chainId", []);
-
-  let chainId = convertHexToNumber(sanitizeHex(addHexPrefix(`${chainIdRes}`)));
-
-  if (!chainId) {
-    const networkIdRes = await web3.currentProvider.send("net_version", []);
-
-    const networkId = convertHexToNumber(
-      sanitizeHex(addHexPrefix(`${networkIdRes}`))
-    );
-
-    if (networkId) {
-      const _chainId = getChainIdFromNetworkId(networkId);
-
-      if (_chainId) {
-        chainId = _chainId;
-      }
-    }
-  }
-  return chainId;
-}
-
 export function parseQueryString(queryString: string): any {
   const result: any = {};
 
@@ -247,7 +184,7 @@ export function formatQueryString(queryParams: any): string {
 }
 
 export function checkRequiredParams(params: any, requiredParams: string[]) {
-  requiredParams.forEach(x => {
+  requiredParams.forEach((x) => {
     if (!params[x]) {
       throw new Error(`No ${capitalize(x)} Value Provided`);
     }
