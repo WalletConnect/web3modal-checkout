@@ -1,6 +1,6 @@
 import * as React from "react";
 import styled from "styled-components";
-import Web3 from "web3";
+import { BigNumber, Contract, providers, utils } from "ethers";
 
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
@@ -18,18 +18,19 @@ import PaymentResult from "./components/PaymentResult";
 
 import {
   parseQueryString,
-  getChainData,
   appendToQueryString,
-  checkRequiredParams
+  checkRequiredParams,
 } from "./helpers/utilities";
-import { formatTransaction } from "./helpers/transaction";
-import { IPayment } from "./helpers/types";
+import { IAssetData, IChainData, IPayment } from "./helpers/types";
 import { fonts } from "./styles";
 import {
   PAYMENT_SUCCESS,
   PAYMENT_FAILURE,
-  PAYMENT_PENDING
+  PAYMENT_PENDING,
 } from "./constants/paymentStatus";
+import { SUPPORTED_ASSETS } from "./constants/supported";
+import { ERC20 } from "./helpers/abi";
+import { getChain, getSupportedNetworkByAssetSymbol } from "./helpers/chains";
 
 const SLayout = styled.div`
   position: relative;
@@ -54,11 +55,11 @@ const SContainer = styled.div`
   word-break: break-word;
 `;
 
-const SLanding = styled(Column)`
+const SLanding = styled(Column as any)`
   height: 600px;
 `;
 
-const SBalances = styled(SLanding)`
+const SBalances = styled(SLanding as any)`
   height: 100%;
   & h3 {
     padding-top: 30px;
@@ -87,27 +88,27 @@ interface IPaymentRequest {
 
 interface IAppState {
   fetching: boolean;
-  address: string;
-  web3: any;
   connected: boolean;
-  chainId: number;
-  paymentRequest: IPaymentRequest | null;
-  paymentStatus: IPayment | null;
+  address: string;
+  chain: IChainData | undefined;
+  provider: providers.Web3Provider | undefined;
+  paymentRequest: IPaymentRequest | undefined;
+  paymentStatus: IPayment | undefined;
   errorMsg: string;
 }
 
 const INITIAL_STATE: IAppState = {
   fetching: false,
-  address: "",
-  web3: null,
   connected: false,
-  chainId: 1,
-  paymentRequest: null,
-  paymentStatus: null,
-  errorMsg: ""
+  address: "",
+  chain: undefined,
+  provider: undefined,
+  paymentRequest: undefined,
+  paymentStatus: undefined,
+  errorMsg: "",
 };
 
-let accountInterval: any = null;
+let accountInterval: any = undefined;
 
 class App extends React.Component<any, any> {
   // @ts-ignore
@@ -118,55 +119,60 @@ class App extends React.Component<any, any> {
     super(props);
     this.state = {
       ...INITIAL_STATE,
-      paymentRequest: this.getPaymentRequest()
+      paymentRequest: this.getPaymentRequest(),
     };
     this.web3Modal = new Web3Modal({
       network: this.getNetwork(),
       cacheProvider: true,
-      providerOptions: this.getProviderOptions()
+      providerOptions: this.getProviderOptions(),
     });
   }
 
   public onConnect = async () => {
-    const provider = await this.web3Modal.connect();
+    const web3Provider = await this.web3Modal.connect();
 
-    await this.subscribeProvider(provider);
+    const provider = new providers.Web3Provider(web3Provider);
 
-    const web3: any = new Web3(provider);
+    provider.on("disconnect", () => this.resetApp());
 
-    web3.eth.extend({
-      methods: [
-        {
-          name: "chainId",
-          call: "eth_chainId",
-          outputFormatter: web3.utils.hexToNumber
-        }
-      ]
+    provider.on("accountsChanged", (accounts: string[]) =>
+      this.setState({ address: accounts[0] })
+    );
+
+    provider.on("chainChanged", async (chainId: number) => {
+      const chain = await getChain(`eip155:${chainId}`);
+      this.setState({ chain });
     });
 
-    const accounts = await web3.eth.getAccounts();
+    const { chainId } = await provider.getNetwork();
+    const address = await provider.getSigner().getAddress();
 
-    const address = accounts[0];
-
-    const networkId = await web3.eth.net.getId();
-
-    const chainId = await web3.eth.chainId();
+    const chain = await getChain(`eip155:${chainId}`);
 
     await this.setState({
-      web3,
       provider,
       connected: true,
       address,
-      chainId,
-      networkId
+      chain,
     });
     await this.requestTransaction();
   };
 
-  public getNetwork = () => getChainData(this.state.chainId).network;
+  public getNetwork = () => {
+    const { paymentRequest } = this.state;
+    let network = "mainnet";
+    if (paymentRequest) {
+      try {
+        network = getSupportedNetworkByAssetSymbol(paymentRequest.currency);
+      } catch (e) {
+        this.displayErrorMessage(e.message);
+      }
+    }
+    return network;
+  };
 
   public getPaymentRequest = () => {
-    let result: IPaymentRequest | null = null;
+    let result: IPaymentRequest | undefined = undefined;
     if (typeof window !== "undefined") {
       const queryString = window.location.search;
       if (queryString && queryString.trim()) {
@@ -179,10 +185,10 @@ class App extends React.Component<any, any> {
               amount: queryParams.amount,
               to: queryParams.to,
               callbackUrl: decodeURIComponent(queryParams.callbackUrl) || "",
-              data: queryParams.data || ""
+              data: queryParams.data || "",
             };
           } catch (error) {
-            result = null;
+            result = undefined;
             console.error(error);
           }
         }
@@ -196,49 +202,31 @@ class App extends React.Component<any, any> {
       walletconnect: {
         package: WalletConnectProvider,
         options: {
-          infuraId: process.env.REACT_APP_INFURA_ID
-        }
+          infuraId: process.env.REACT_APP_INFURA_ID,
+        },
       },
       torus: {
         package: Torus,
-        options: {}
+        options: {},
       },
       fortmatic: {
         package: Fortmatic,
         options: {
-          key: process.env.REACT_APP_FORTMATIC_KEY
-        }
+          key: process.env.REACT_APP_FORTMATIC_KEY,
+        },
       },
       portis: {
         package: Portis,
         options: {
-          id: process.env.REACT_APP_PORTIS_ID
-        }
+          id: process.env.REACT_APP_PORTIS_ID,
+        },
       },
       authereum: {
         package: Authereum,
-        options: {}
-      }
+        options: {},
+      },
     };
     return providerOptions;
-  };
-
-  public subscribeProvider = async (provider: any) => {
-    provider.on("close", () => this.resetApp());
-    provider.on("accountsChanged", async (accounts: string[]) => {
-      await this.setState({ address: accounts[0] });
-    });
-    provider.on("chainChanged", async (chainId: number) => {
-      const { web3 } = this.state;
-      const networkId = await web3.eth.net.getId();
-      await this.setState({ chainId, networkId });
-    });
-
-    provider.on("networkChanged", async (networkId: number) => {
-      const { web3 } = this.state;
-      const chainId = await web3.eth.chainId();
-      await this.setState({ chainId, networkId });
-    });
   };
 
   public clearErrorMessage = () => this.setState({ errorMsg: "" });
@@ -250,32 +238,68 @@ class App extends React.Component<any, any> {
     }
   };
 
+  public getAsset = (assetSymbol: string, chainId?: number): IAssetData => {
+    let result: IAssetData | undefined = undefined;
+    if (assetSymbol === "eth" && chainId !== 1) {
+      throw new Error(
+        "Please switch to Ethereum Mainnet and refresh this page"
+      );
+    }
+    if (assetSymbol === "xdai" && chainId !== 100) {
+      throw new Error("Please switch to xDAI and refresh this page");
+    }
+    if (chainId && SUPPORTED_ASSETS[chainId]) {
+      result =
+        SUPPORTED_ASSETS[chainId][assetSymbol.toLowerCase()] || undefined;
+    }
+    if (typeof result === "undefined") {
+      throw new Error(`Asset request is not supported: ${assetSymbol}`);
+    }
+    return result;
+  };
+
   public requestTransaction = async () => {
-    const { address, paymentRequest, chainId } = this.state;
+    const { provider, paymentRequest, chain } = this.state;
     if (paymentRequest) {
-      if (paymentRequest.currency.toLowerCase() === "eth" && chainId !== 1) {
+      const { amount, to, data, callbackUrl } = paymentRequest;
+      const assetSymbol = paymentRequest.currency.toLowerCase();
+      if (typeof provider === "undefined") {
         return this.displayErrorMessage(
-          "Please switch to Ethereum Mainnet and refresh this page"
+          "Wallet Provider selected is unavailable"
         );
       }
-      if (paymentRequest.currency.toLowerCase() === "xdai" && chainId !== 100) {
-        return this.displayErrorMessage(
-          "Please switch to xDAI and refresh this page"
-        );
+      let asset: IAssetData;
+      try {
+        asset = this.getAsset(assetSymbol, chain?.chainId);
+      } catch (e) {
+        return this.displayErrorMessage(e.message);
       }
+
       this.updatePaymentStatus(PAYMENT_PENDING);
       try {
-        const { currency, amount, to, data, callbackUrl } = paymentRequest;
-        const from = address;
-        const tx = await formatTransaction(
-          from,
-          to,
-          amount,
-          currency,
-          chainId,
-          data
-        );
-        const txHash = await this.web3SendTransaction(tx);
+        let txHash: string | undefined = undefined;
+        if (asset.contractAddress) {
+          const contract = new Contract(
+            asset.contractAddress,
+            ERC20.abi,
+            provider.getSigner()
+          );
+          const tx = await contract.transfer(
+            to,
+            utils.parseUnits(amount, BigNumber.from(asset.decimals))
+          );
+          txHash = tx.hash;
+        } else {
+          const tx = await provider.getSigner().sendTransaction({
+            to,
+            value: utils.parseEther(amount),
+            data: data || "0x",
+          });
+          txHash = tx.hash;
+        }
+        if (typeof txHash === "undefined") {
+          return this.displayErrorMessage(`Failed or missing transaction`);
+        }
         this.updatePaymentStatus(PAYMENT_SUCCESS, txHash);
         if (callbackUrl) {
           setTimeout(
@@ -292,20 +316,8 @@ class App extends React.Component<any, any> {
     }
   };
 
-  public updatePaymentStatus = (status: string, result: any = null) =>
+  public updatePaymentStatus = (status: string, result: any = undefined) =>
     this.setState({ paymentStatus: { status, result } });
-
-  public web3SendTransaction = (tx: any) => {
-    const { web3 } = this.state;
-    return new Promise((resolve, reject) => {
-      web3.eth.sendTransaction(tx, (err: any, txHash: string) => {
-        if (err) {
-          reject(err);
-        }
-        resolve(txHash);
-      });
-    });
-  };
 
   public redirectToCallbackUrl() {
     const { paymentRequest, paymentStatus } = this.state;
@@ -313,7 +325,7 @@ class App extends React.Component<any, any> {
       if (typeof window !== "undefined") {
         const url = appendToQueryString(paymentRequest.callbackUrl, {
           txhash: paymentStatus.result,
-          currency: paymentRequest.currency
+          currency: paymentRequest.currency,
         });
         window.open(url);
       } else {
@@ -323,13 +335,13 @@ class App extends React.Component<any, any> {
   }
 
   public checkCurrentAccount = async () => {
-    const { web3, address, chainId } = this.state;
-    if (!web3) {
+    const { provider, chain } = this.state;
+    if (!provider || !chain) {
       return;
     }
-    const accounts = await web3.eth.getAccounts();
-    if (accounts[0] !== address) {
-      this.onSessionUpdate(accounts, chainId);
+    const address = await provider.getSigner().getAddress();
+    if (address !== this.state.address) {
+      this.onSessionUpdate([address], chain.chainId);
     }
   };
 
@@ -339,14 +351,12 @@ class App extends React.Component<any, any> {
   };
 
   public resetApp = async () => {
-    const { web3 } = this.state;
+    const { provider } = this.state;
     if (
-      web3 &&
-      web3.currentProvider &&
-      web3.currentProvider.connection &&
-      web3.currentProvider.connection.isWalletConnect
+      provider &&
+      (provider.provider as WalletConnectProvider).isWalletConnect
     ) {
-      await web3.currentProvider.connection._walletConnector.killSession();
+      await (provider.provider as WalletConnectProvider).close();
     }
     clearInterval(accountInterval);
     this.setState({ ...INITIAL_STATE });
@@ -366,7 +376,7 @@ class App extends React.Component<any, any> {
         </SDisplayTxHash>
       );
     }
-    return null;
+    return undefined;
   };
 
   public render = () => {
@@ -374,10 +384,10 @@ class App extends React.Component<any, any> {
       fetching,
       connected,
       address,
-      chainId,
+      chain,
       errorMsg,
       paymentRequest,
-      paymentStatus
+      paymentStatus,
     } = this.state;
     return (
       <SLayout>
@@ -385,7 +395,7 @@ class App extends React.Component<any, any> {
           <Header
             connected={connected}
             address={address}
-            chainId={chainId}
+            chain={chain}
             killSession={this.resetApp}
           />
           <SContent>

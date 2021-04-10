@@ -12,14 +12,12 @@ const AccountAssets = (props: any) => {
           symbol: "xDAI",
           name: "xDAI",
           decimals: "18",
-          balance: "0"
         }
       : {
           contractAddress: "",
           name: "Ethereum",
           symbol: "ETH",
           decimals: "18",
-          balance: "0"
         };
 
   let nativeCurrency: IAssetData = defaultNativeCurrency;
@@ -43,7 +41,7 @@ const AccountAssets = (props: any) => {
   return (
     <Column center>
       <AssetRow key={nativeCurrency.name} asset={nativeCurrency} />
-      {tokens.map(token => (
+      {tokens.map((token) => (
         <AssetRow key={token.symbol} asset={token} />
       ))}
     </Column>
