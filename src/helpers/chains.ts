@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { IChainData } from "./types";
+import { SUPPORTED_CHAINS } from "../constants/supported";
 
 const EIP155_API_URL = "https://chainid.network/chains.json";
 
@@ -26,4 +27,14 @@ export async function getChain(chainId: string) {
     default:
       throw new Error(`Chain namespace not supported for chainId: ${chainId}`);
   }
+}
+
+export function getSupportedNetworkByAssetSymbol(assetSymbol: string): string {
+  let match = Object.keys(SUPPORTED_CHAINS).find((key) =>
+    SUPPORTED_CHAINS[key].assets.includes(assetSymbol.toLowerCase())
+  );
+  if (typeof match === "undefined") {
+    throw new Error(`No supported chain found for currency: ${assetSymbol}`);
+  }
+  return match;
 }

@@ -1,12 +1,33 @@
 import { IAssetData } from "../helpers/types";
 
+interface ISupportedChains {
+  [network: string]: {
+    name: string;
+    chainId: number;
+    assets: string[];
+  };
+}
+
+export const SUPPORTED_CHAINS: ISupportedChains = {
+  mainnet: {
+    name: "Ethereum",
+    chainId: 1,
+    assets: ["eth", "sai", "dai"],
+  },
+  xdai: {
+    name: "xDAI",
+    chainId: 100,
+    assets: ["xdai"],
+  },
+};
+
 interface ISupportedAssets {
   [chainId: number]: {
     [assetSymbol: string]: IAssetData;
   };
 }
 
-const SUPPORTED_ASSETS: ISupportedAssets = {
+export const SUPPORTED_ASSETS: ISupportedAssets = {
   1: {
     eth: {
       symbol: "ETH",
@@ -36,5 +57,3 @@ const SUPPORTED_ASSETS: ISupportedAssets = {
     },
   },
 };
-
-export default SUPPORTED_ASSETS;

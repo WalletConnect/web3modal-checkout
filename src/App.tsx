@@ -28,9 +28,9 @@ import {
   PAYMENT_FAILURE,
   PAYMENT_PENDING,
 } from "./constants/paymentStatus";
-import SUPPORTED_ASSETS from "./constants/supportedAssets";
+import { SUPPORTED_ASSETS } from "./constants/supported";
 import { ERC20 } from "./helpers/abi";
-import { getChain } from "./helpers/chains";
+import { getChain, getSupportedNetworkByAssetSymbol } from "./helpers/chains";
 
 const SLayout = styled.div`
   position: relative;
@@ -122,7 +122,7 @@ class App extends React.Component<any, any> {
       paymentRequest: this.getPaymentRequest(),
     };
     this.web3Modal = new Web3Modal({
-      network: "mainnet",
+      network: this.getNetwork(),
       cacheProvider: true,
       providerOptions: this.getProviderOptions(),
     });
@@ -139,9 +139,10 @@ class App extends React.Component<any, any> {
       this.setState({ address: accounts[0] })
     );
 
-    provider.on("chainChanged", (chainId: number) =>
-      this.setState({ chainId })
-    );
+    provider.on("chainChanged", async (chainId: number) => {
+      const chain = await getChain(`eip155:${chainId}`);
+      this.setState({ chain });
+    });
 
     const { chainId } = await provider.getNetwork();
     const address = await provider.getSigner().getAddress();
@@ -155,6 +156,19 @@ class App extends React.Component<any, any> {
       chain,
     });
     await this.requestTransaction();
+  };
+
+  public getNetwork = () => {
+    const { paymentRequest } = this.state;
+    let network = "mainnet";
+    if (paymentRequest) {
+      try {
+        network = getSupportedNetworkByAssetSymbol(paymentRequest.currency);
+      } catch (e) {
+        this.displayErrorMessage(e.message);
+      }
+    }
+    return network;
   };
 
   public getPaymentRequest = () => {
@@ -224,11 +238,22 @@ class App extends React.Component<any, any> {
     }
   };
 
-  public getAsset = (assetSymbol: string, chainId?: number) => {
+  public getAsset = (assetSymbol: string, chainId?: number): IAssetData => {
     let result: IAssetData | undefined = undefined;
+    if (assetSymbol === "eth" && chainId !== 1) {
+      throw new Error(
+        "Please switch to Ethereum Mainnet and refresh this page"
+      );
+    }
+    if (assetSymbol === "xdai" && chainId !== 100) {
+      throw new Error("Please switch to xDAI and refresh this page");
+    }
     if (chainId && SUPPORTED_ASSETS[chainId]) {
       result =
         SUPPORTED_ASSETS[chainId][assetSymbol.toLowerCase()] || undefined;
+    }
+    if (typeof result === "undefined") {
+      throw new Error(`Asset request is not supported: ${assetSymbol}`);
     }
     return result;
   };
@@ -236,29 +261,20 @@ class App extends React.Component<any, any> {
   public requestTransaction = async () => {
     const { provider, paymentRequest, chain } = this.state;
     if (paymentRequest) {
-      const { currency, amount, to, data, callbackUrl } = paymentRequest;
+      const { amount, to, data, callbackUrl } = paymentRequest;
       const assetSymbol = paymentRequest.currency.toLowerCase();
       if (typeof provider === "undefined") {
         return this.displayErrorMessage(
           "Wallet Provider selected is unavailable"
         );
       }
-      if (assetSymbol === "eth" && chain?.chainId !== 1) {
-        return this.displayErrorMessage(
-          "Please switch to Ethereum Mainnet and refresh this page"
-        );
+      let asset: IAssetData;
+      try {
+        asset = this.getAsset(assetSymbol, chain?.chainId);
+      } catch (e) {
+        return this.displayErrorMessage(e.message);
       }
-      if (assetSymbol === "xdai" && chain?.chainId !== 100) {
-        return this.displayErrorMessage(
-          "Please switch to xDAI and refresh this page"
-        );
-      }
-      const asset = this.getAsset(currency, chain?.chainId);
-      if (typeof asset === "undefined") {
-        return this.displayErrorMessage(
-          `Asset request is not supported: ${currency}`
-        );
-      }
+
       this.updatePaymentStatus(PAYMENT_PENDING);
       try {
         let txHash: string | undefined = undefined;
