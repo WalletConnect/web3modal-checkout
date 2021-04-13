@@ -2,19 +2,20 @@ export interface IAssetData {
   symbol: string;
   name: string;
   decimals: string;
-  contractAddress: string;
-  balance?: string;
+  contractAddress?: string;
 }
 
 export interface IChainData {
   name: string;
-  short_name: string;
+  shortName: string;
   chain: string;
   network: string;
-  chain_id: number;
-  network_id: number;
-  rpc_url: string;
-  native_currency: IAssetData;
+  chainId: number;
+  networkId: number;
+  nativeCurrency: IAssetData;
+  rpc: string[];
+  faucets: string[];
+  infoURL: string;
 }
 
 export interface IGasPrice {
