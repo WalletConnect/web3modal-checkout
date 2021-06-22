@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { BigNumber, Contract, providers, utils } from "ethers";
 
 import Web3Modal from "web3modal";
+import {CHAIN_DATA_LIST} from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import Fortmatic from "fortmatic";
 import Torus from "@toruslabs/torus-embed";
@@ -79,6 +80,7 @@ const SDisplayTxHash = styled.a`
 `;
 
 interface IPaymentRequest {
+  chainId: number;
   currency: string;
   amount: string;
   to: string;
@@ -91,6 +93,7 @@ interface IAppState {
   connected: boolean;
   address: string;
   chain: IChainData | undefined;
+  expectedNetwork: string;
   provider: providers.Web3Provider | undefined;
   paymentRequest: IPaymentRequest | undefined;
   paymentStatus: IPayment | undefined;
@@ -102,6 +105,7 @@ const INITIAL_STATE: IAppState = {
   connected: false,
   address: "",
   chain: undefined,
+  expectedNetwork: "mainnet",
   provider: undefined,
   paymentRequest: undefined,
   paymentStatus: undefined,
@@ -121,8 +125,12 @@ class App extends React.Component<any, any> {
       ...INITIAL_STATE,
       paymentRequest: this.getPaymentRequest(),
     };
+    // if there is a payment network, set the expected Network (defaults to mainnet otherwise)
+    if (this.state.paymentRequest) {
+      this.state.expectedNetwork = CHAIN_DATA_LIST[this.state.paymentRequest.chainId].network;
+    }
     this.web3Modal = new Web3Modal({
-      network: this.getNetwork(),
+      network: this.state.expectedNetwork,
       cacheProvider: true,
       providerOptions: this.getProviderOptions(),
     });
@@ -155,20 +163,11 @@ class App extends React.Component<any, any> {
       address,
       chain,
     });
-    await this.requestTransaction();
-  };
-
-  public getNetwork = () => {
-    const { paymentRequest } = this.state;
-    let network = "mainnet";
-    if (paymentRequest) {
-      try {
-        network = getSupportedNetworkByAssetSymbol(paymentRequest.currency);
-      } catch (e) {
-        this.displayErrorMessage(e.message);
-      }
+    // check that the right chain was connected to!
+    if (this.state.paymentRequest && chainId !== this.state.paymentRequest!.chainId) {
+      return this.displayErrorMessage(`Please switch to ${this.state.expectedNetwork} and refresh this page`);
     }
-    return network;
+    await this.requestTransaction();
   };
 
   public getPaymentRequest = () => {
@@ -185,6 +184,7 @@ class App extends React.Component<any, any> {
               amount: queryParams.amount,
               to: queryParams.to,
               callbackUrl: decodeURIComponent(queryParams.callbackUrl) || "",
+              chainId: queryParams.chainId || 1,
               data: queryParams.data || "",
             };
           } catch (error) {
