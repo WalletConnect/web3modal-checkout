@@ -318,11 +318,14 @@ class App extends React.Component<any, any> {
     const { paymentRequest, paymentStatus } = this.state;
     if (paymentRequest && paymentStatus) {
       if (typeof window !== "undefined") {
-        const url = appendToQueryString(paymentRequest.callbackUrl, {
-          txhash: paymentStatus.result,
-          currency: paymentRequest.currency,
-        });
-        window.open(url);
+        // open callback if defined. decodeURIComponent returns string(undefiend).
+        if (paymentRequest.callbackUrl!=="undefined") {
+          const url = appendToQueryString(paymentRequest.callbackUrl, {
+            txhash: paymentStatus.result,
+            currency: paymentRequest.currency,
+          });        
+          window.open(url);
+        }
       } else {
         return this.displayErrorMessage("Window is undefined");
       }
