@@ -3,6 +3,7 @@ import styled from "styled-components";
 import { BigNumber, Contract, providers, utils } from "ethers";
 
 import Web3Modal from "web3modal";
+import { CHAIN_DATA_LIST } from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import Fortmatic from "fortmatic";
 import Torus from "@toruslabs/torus-embed";
@@ -28,9 +29,9 @@ import {
   PAYMENT_FAILURE,
   PAYMENT_PENDING,
 } from "./constants/paymentStatus";
-import { SUPPORTED_ASSETS } from "./constants/supported";
+import { SUPPORTED_ASSETS, SUPPORTED_CHAINS } from "./constants/supported";
 import { ERC20 } from "./helpers/abi";
-import { getChain, getSupportedNetworkByAssetSymbol } from "./helpers/chains";
+import { getChain } from "./helpers/chains";
 
 const SLayout = styled.div`
   position: relative;
@@ -79,6 +80,7 @@ const SDisplayTxHash = styled.a`
 `;
 
 interface IPaymentRequest {
+  chainId: number;
   currency: string;
   amount: string;
   to: string;
@@ -91,6 +93,7 @@ interface IAppState {
   connected: boolean;
   address: string;
   chain: IChainData | undefined;
+  expectedNetwork: string;
   provider: providers.Web3Provider | undefined;
   paymentRequest: IPaymentRequest | undefined;
   paymentStatus: IPayment | undefined;
@@ -102,6 +105,7 @@ const INITIAL_STATE: IAppState = {
   connected: false,
   address: "",
   chain: undefined,
+  expectedNetwork: "mainnet",
   provider: undefined,
   paymentRequest: undefined,
   paymentStatus: undefined,
@@ -121,8 +125,12 @@ class App extends React.Component<any, any> {
       ...INITIAL_STATE,
       paymentRequest: this.getPaymentRequest(),
     };
+    // if there is a payment network, set the expected Network (defaults to mainnet otherwise)
+    if (this.state.paymentRequest) {
+      this.state.expectedNetwork = CHAIN_DATA_LIST[this.state.paymentRequest.chainId].network;
+    }
     this.web3Modal = new Web3Modal({
-      network: this.getNetwork(),
+      network: this.state.expectedNetwork,
       cacheProvider: true,
       providerOptions: this.getProviderOptions(),
     });
@@ -155,20 +163,11 @@ class App extends React.Component<any, any> {
       address,
       chain,
     });
-    await this.requestTransaction();
-  };
-
-  public getNetwork = () => {
-    const { paymentRequest } = this.state;
-    let network = "mainnet";
-    if (paymentRequest) {
-      try {
-        network = getSupportedNetworkByAssetSymbol(paymentRequest.currency);
-      } catch (e) {
-        this.displayErrorMessage(e.message);
-      }
+    // check that the right chain was connected to!
+    if (this.state.paymentRequest && chainId !== this.state.paymentRequest!.chainId) {
+      return this.displayErrorMessage(`Please switch to ${this.state.expectedNetwork} and refresh this page`);
     }
-    return network;
+    await this.requestTransaction();
   };
 
   public getPaymentRequest = () => {
@@ -185,8 +184,13 @@ class App extends React.Component<any, any> {
               amount: queryParams.amount,
               to: queryParams.to,
               callbackUrl: decodeURIComponent(queryParams.callbackUrl) || "",
+              chainId: parseInt(queryParams.chainId) || 1,
               data: queryParams.data || "",
             };
+            // check network support:
+            if (typeof SUPPORTED_CHAINS[result.chainId] === "undefined") {
+              throw new Error("The app can't handle this network currently...");
+            }
           } catch (error) {
             result = undefined;
             console.error(error);
@@ -238,19 +242,10 @@ class App extends React.Component<any, any> {
     }
   };
 
-  public getAsset = (assetSymbol: string, chainId?: number): IAssetData => {
+  public getAsset = (assetSymbol: string, chainId: number): IAssetData => {
     let result: IAssetData | undefined = undefined;
-    if (assetSymbol === "eth" && chainId !== 1) {
-      throw new Error(
-        "Please switch to Ethereum Mainnet and refresh this page"
-      );
-    }
-    if (assetSymbol === "xdai" && chainId !== 100) {
-      throw new Error("Please switch to xDAI and refresh this page");
-    }
-    if (chainId && SUPPORTED_ASSETS[chainId]) {
-      result =
-        SUPPORTED_ASSETS[chainId][assetSymbol.toLowerCase()] || undefined;
+    if (SUPPORTED_ASSETS[chainId]) {
+      result = SUPPORTED_ASSETS[chainId][assetSymbol.toLowerCase()] || undefined;
     }
     if (typeof result === "undefined") {
       throw new Error(`Asset request is not supported: ${assetSymbol}`);
@@ -259,7 +254,7 @@ class App extends React.Component<any, any> {
   };
 
   public requestTransaction = async () => {
-    const { provider, paymentRequest, chain } = this.state;
+    const { provider, paymentRequest } = this.state;
     if (paymentRequest) {
       const { amount, to, data, callbackUrl } = paymentRequest;
       const assetSymbol = paymentRequest.currency.toLowerCase();
@@ -270,7 +265,7 @@ class App extends React.Component<any, any> {
       }
       let asset: IAssetData;
       try {
-        asset = this.getAsset(assetSymbol, chain?.chainId);
+        asset = this.getAsset(assetSymbol, paymentRequest.chainId);
       } catch (e) {
         return this.displayErrorMessage(e.message);
       }
@@ -323,11 +318,14 @@ class App extends React.Component<any, any> {
     const { paymentRequest, paymentStatus } = this.state;
     if (paymentRequest && paymentStatus) {
       if (typeof window !== "undefined") {
-        const url = appendToQueryString(paymentRequest.callbackUrl, {
-          txhash: paymentStatus.result,
-          currency: paymentRequest.currency,
-        });
-        window.open(url);
+        // open callback if defined. decodeURIComponent returns string(undefiend).
+        if (paymentRequest.callbackUrl!=="undefined") {
+          const url = appendToQueryString(paymentRequest.callbackUrl, {
+            txhash: paymentStatus.result,
+            currency: paymentRequest.currency,
+          });        
+          window.open(url);
+        }
       } else {
         return this.displayErrorMessage("Window is undefined");
       }
@@ -366,10 +364,7 @@ class App extends React.Component<any, any> {
     const { paymentRequest, paymentStatus } = this.state;
     if (paymentRequest && paymentStatus) {
       const txHash = paymentStatus.result;
-      const url =
-        paymentRequest.currency.toLowerCase() === "xdai"
-          ? `https://blockscout.com/poa/dai/tx/${txHash}`
-          : `https://etherscan.io/tx/${txHash}`;
+      const url = `${SUPPORTED_CHAINS[paymentRequest.chainId].blockExplorerUrl}/tx/${txHash}`;
       return (
         <SDisplayTxHash href={url} target="blank" rel="noreferrer noopener">
           {txHash}
@@ -417,7 +412,7 @@ class App extends React.Component<any, any> {
                 <SPaymentRequestDescription>
                   {`Paying `}
                   <span>{`${paymentRequest.amount} ${paymentRequest.currency}`}</span>
-                  {` to ${paymentRequest.to}`}
+                  {` to ${paymentRequest.to} on ${SUPPORTED_CHAINS[paymentRequest.chainId].name} network`}
                 </SPaymentRequestDescription>
                 {!paymentStatus ? (
                   <ConnectButton label="Pay" onClick={this.onConnect} />
