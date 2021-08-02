@@ -36,7 +36,7 @@
     "react-scripts": "3.4.1",
     "styled-components": "4.2.0",
     "typescript": "~3.7.2",
-    "web3modal": "^1.9.3"
+    "web3modal": "^1.9.4"
   },
   "eslintConfig": {
     "extends": "react-app"
