@@ -304,6 +304,9 @@ class App extends React.Component<any, any> {
         }
       } catch (error) {
         console.error(error);
+        if (error.data.message) {
+          return this.displayErrorMessage(error.data.message);
+        }
         return this.displayErrorMessage(error.message);
       }
     } else {
