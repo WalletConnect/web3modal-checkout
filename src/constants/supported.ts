@@ -29,6 +29,12 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://rinkeby.etherscan.io",
   },
+  5: {
+    name: "Ethereum Goerli Testnet",
+    chainId: 5,
+    assets: ["eth", "dai"],
+    blockExplorerUrl: "https://goerli.etherscan.io/",
+  },
   10: {
     name: "Optimism Mainnet",
     chainId: 10,
@@ -51,7 +57,7 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
     name: "Arbitrum Mainnet",
     chainId: 42161,
     assets: ["eth", "dai"],
-    blockExplorerUrl: "https://explorer.arbitrum.io",
+    blockExplorerUrl: "https://arbiscan.io",
   },
   421611: {
     name: "Arbitrum Rinkeby Testnet",
@@ -108,6 +114,20 @@ export const SUPPORTED_ASSETS: ISupportedAssets = {
       name: "DAI Stablecoin",
       decimals: "18",
       contractAddress: "0xc7AD46e0b8a400Bb3C915120d284AafbA8fc4735",
+    },
+  },
+  5: {
+    eth: {
+      symbol: "ETH",
+      name: "Ethereum",
+      decimals: "18",
+      contractAddress: "",
+    },
+    dai: {
+      symbol: "DAI",
+      name: "DAI Stablecoin",
+      decimals: "18",
+      contractAddress: "0x73967c6a0904aa032c103b4104747e88c566b1a2",
     },
   },
   10: {
