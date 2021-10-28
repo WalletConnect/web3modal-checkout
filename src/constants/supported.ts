@@ -6,6 +6,7 @@ interface ISupportedChains {
     chainId: number;
     assets: string[];
     blockExplorerUrl: string;
+    rpcUrl?: string; // used for walletconnect provider.
   };
 }
 
@@ -21,7 +22,6 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
     chainId: 3,
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://ropsten.etherscan.io",
-
   },
   4: {
     name: "Ethereum Rinkeby Testnet",
@@ -40,12 +40,14 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
     chainId: 10,
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://optimistic.etherscan.io",
+    rpcUrl: "https://mainnet.optimism.io",
   },
   69: {
     name: "Optimism Kovan Testnet",
     chainId: 69,
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://kovan-optimistic.etherscan.io",
+    rpcUrl: "https://kovan.optimism.io",
   },
   100: {
     name: "xDAI",
@@ -58,14 +60,23 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
     chainId: 42161,
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://arbiscan.io",
+    rpcUrl: "https://arb1.arbitrum.io/rpc",
   },
   421611: {
     name: "Arbitrum Rinkeby Testnet",
     chainId: 421611,
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://rinkeby-explorer.arbitrum.io",
+    rpcUrl: " https://rinkeby.arbitrum.io/rpc",
   },
 };
+
+export const RPC_URLS_FOR_SUPPORTED_CHAINS = 
+  Object.keys(SUPPORTED_CHAINS).reduce(function(result, key) {
+    if (SUPPORTED_CHAINS[key].rpcUrl !== undefined)
+      result[key] = SUPPORTED_CHAINS[key].rpcUrl 
+    return result
+  }, {});
 
 interface ISupportedAssets {
   [chainId: number]: {

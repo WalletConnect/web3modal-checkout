@@ -29,7 +29,7 @@ import {
   PAYMENT_FAILURE,
   PAYMENT_PENDING,
 } from "./constants/paymentStatus";
-import { SUPPORTED_ASSETS, SUPPORTED_CHAINS } from "./constants/supported";
+import { RPC_URLS_FOR_SUPPORTED_CHAINS, SUPPORTED_ASSETS, SUPPORTED_CHAINS } from "./constants/supported";
 import { ERC20 } from "./helpers/abi";
 import { getChain } from "./helpers/chains";
 
@@ -207,6 +207,7 @@ class App extends React.Component<any, any> {
         package: WalletConnectProvider,
         options: {
           infuraId: process.env.REACT_APP_INFURA_ID,
+          rpc: RPC_URLS_FOR_SUPPORTED_CHAINS, //for chain IDs that wallet connect hasn't configured infura for yet.
         },
       },
       torus: {
