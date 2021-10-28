@@ -371,7 +371,8 @@ class App extends React.Component<any, any> {
       const url = `${SUPPORTED_CHAINS[paymentRequest.chainId].blockExplorerUrl}/tx/${txHash}`;
       return (
         <SDisplayTxHash href={url} target="blank" rel="noreferrer noopener">
-          {txHash}
+          <hr />
+          Transaction Hash: {txHash}
         </SDisplayTxHash>
       );
     }
