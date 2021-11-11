@@ -123,6 +123,53 @@ class App extends React.Component<any, any> {
     });
   }
 
+  // Connect on wallet on page load and subscribe to events.
+  async componentDidMount() {
+    const web3Provider = await this.web3Modal.connect();
+    await this.connectToApp();
+
+    // Subscribe to events
+    web3Provider.on("disconnect", () => this.resetApp());
+
+    web3Provider.on("accountsChanged", async (accounts: string[]) => {
+      this.setState({ address: accounts[0] })
+      await this.pay();
+    });
+
+    web3Provider.on("chainChanged", async (chainId: number) => {
+      const chain = await getChain(`eip155:${chainId}`);
+      this.setState({ chain });
+      await this.pay();
+    });
+  };
+
+
+  public connectToApp = async () => {
+    const web3Provider = await this.web3Modal.connect();
+    const ethersProvider = new providers.Web3Provider(web3Provider, "any");
+    const { chainId } = await ethersProvider.getNetwork();
+    const chain = await getChain(`eip155:${chainId}`);
+    const address = await ethersProvider.getSigner().getAddress();
+
+    this.setState({
+      provider: ethersProvider,
+      connected: true,
+      address, //needed to render on home page
+      chain
+    });
+  }
+
+  public pay = async () => {
+    if (!this.state.connected) {
+      await this.connectToApp();
+    }
+    // check that the right chain was connected to!
+    if (this.state.paymentRequest && this.state.chain!.chainId !== this.state.paymentRequest!.chainId) {
+      return this.displayErrorMessage(`Please switch to ${this.state.expectedNetwork}`);
+    }
+    await this.requestTransaction();
+  }
+
   public getProviderOptions = () => {
     const providerOptions = {
       walletconnect: {
@@ -154,40 +201,6 @@ class App extends React.Component<any, any> {
       },
     };
     return providerOptions;
-  };
-
-  public onConnect = async () => {
-    const web3Provider = await this.web3Modal.connect();
-
-    const provider = new providers.Web3Provider(web3Provider);
-
-    provider.on("disconnect", () => this.resetApp());
-
-    provider.on("accountsChanged", (accounts: string[]) =>
-      this.setState({ address: accounts[0] })
-    );
-
-    provider.on("chainChanged", async (chainId: number) => {
-      const chain = await getChain(`eip155:${chainId}`);
-      this.setState({ chain });
-    });
-
-    const { chainId } = await provider.getNetwork();
-    const address = await provider.getSigner().getAddress();
-
-    const chain = await getChain(`eip155:${chainId}`);
-
-    await this.setState({
-      provider,
-      connected: true,
-      address, //needed to render on home page
-      chain,
-    });
-    // check that the right chain was connected to!
-    if (this.state.paymentRequest && chainId !== this.state.paymentRequest!.chainId) {
-      return this.displayErrorMessage(`Please switch to ${this.state.expectedNetwork} and refresh this page`);
-    }
-    await this.requestTransaction();
   };
 
   public getPaymentRequest = () => {
@@ -386,7 +399,7 @@ class App extends React.Component<any, any> {
                   {` to ${paymentRequest.to} on ${SUPPORTED_CHAINS[paymentRequest.chainId].name} network`}
                 </SPaymentRequestDescription>
                 {!paymentStatus ? (
-                  <ConnectButton label="Pay" onClick={this.onConnect} />
+                  <ConnectButton label="Pay" onClick={this.pay} />
                 ) : (
                   <PaymentResult
                     height={300}
