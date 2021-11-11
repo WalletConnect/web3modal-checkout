@@ -13,7 +13,6 @@ import Authereum from "authereum";
 import Column from "./components/Column";
 import Wrapper from "./components/Wrapper";
 import Header from "./components/Header";
-import Loader from "./components/Loader";
 import ConnectButton from "./components/ConnectButton";
 import PaymentResult from "./components/PaymentResult";
 
@@ -44,16 +43,6 @@ const SContent = styled(Wrapper)`
   width: 100%;
   height: 100%;
   padding: 0 16px;
-`;
-
-const SContainer = styled.div`
-  height: 100%;
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  word-break: break-word;
 `;
 
 const SLanding = styled(Column as any)`
@@ -89,9 +78,8 @@ interface IPaymentRequest {
 }
 
 interface IAppState {
-  fetching: boolean;
   connected: boolean;
-  address: string;
+  address: string; //to render on homepage
   chain: IChainData | undefined;
   expectedNetwork: string;
   provider: providers.Web3Provider | undefined;
@@ -101,7 +89,6 @@ interface IAppState {
 }
 
 const INITIAL_STATE: IAppState = {
-  fetching: false,
   connected: false,
   address: "",
   chain: undefined,
@@ -136,6 +123,39 @@ class App extends React.Component<any, any> {
     });
   }
 
+  public getProviderOptions = () => {
+    const providerOptions = {
+      walletconnect: {
+        package: WalletConnectProvider,
+        options: {
+          infuraId: "8733c260b59e445e85ee90bd80d869aa",//process.env.REACT_APP_INFURA_ID,
+          rpc: RPC_URLS_FOR_SUPPORTED_CHAINS, //for chain IDs that wallet connect hasn't configured infura for yet.
+        },
+      },
+      torus: {
+        package: Torus,
+        options: {},
+      },
+      fortmatic: {
+        package: Fortmatic,
+        options: {
+          key: process.env.REACT_APP_FORTMATIC_KEY,
+        },
+      },
+      portis: {
+        package: Portis,
+        options: {
+          id: process.env.REACT_APP_PORTIS_ID,
+        },
+      },
+      authereum: {
+        package: Authereum,
+        options: {},
+      },
+    };
+    return providerOptions;
+  };
+
   public onConnect = async () => {
     const web3Provider = await this.web3Modal.connect();
 
@@ -160,7 +180,7 @@ class App extends React.Component<any, any> {
     await this.setState({
       provider,
       connected: true,
-      address,
+      address, //needed to render on home page
       chain,
     });
     // check that the right chain was connected to!
@@ -201,39 +221,7 @@ class App extends React.Component<any, any> {
     return result;
   };
 
-  public getProviderOptions = () => {
-    const providerOptions = {
-      walletconnect: {
-        package: WalletConnectProvider,
-        options: {
-          infuraId: process.env.REACT_APP_INFURA_ID,
-          rpc: RPC_URLS_FOR_SUPPORTED_CHAINS, //for chain IDs that wallet connect hasn't configured infura for yet.
-        },
-      },
-      torus: {
-        package: Torus,
-        options: {},
-      },
-      fortmatic: {
-        package: Fortmatic,
-        options: {
-          key: process.env.REACT_APP_FORTMATIC_KEY,
-        },
-      },
-      portis: {
-        package: Portis,
-        options: {
-          id: process.env.REACT_APP_PORTIS_ID,
-        },
-      },
-      authereum: {
-        package: Authereum,
-        options: {},
-      },
-    };
-    return providerOptions;
-  };
-
+  
   public clearErrorMessage = () => this.setState({ errorMsg: "" });
 
   public displayErrorMessage = (errorMsg: string) => {
@@ -315,10 +303,11 @@ class App extends React.Component<any, any> {
     }
   };
 
-  public updatePaymentStatus = (status: string, result: any = undefined) =>
+  public updatePaymentStatus = (status: string, result: any = undefined) => {
     this.setState({ paymentStatus: { status, result } });
+  }
 
-  public redirectToCallbackUrl() {
+  public redirectToCallbackUrl = () => {
     const { paymentRequest, paymentStatus } = this.state;
     if (paymentRequest && paymentStatus) {
       if (typeof window !== "undefined") {
@@ -335,22 +324,6 @@ class App extends React.Component<any, any> {
       }
     }
   }
-
-  public checkCurrentAccount = async () => {
-    const { provider, chain } = this.state;
-    if (!provider || !chain) {
-      return;
-    }
-    const address = await provider.getSigner().getAddress();
-    if (address !== this.state.address) {
-      this.onSessionUpdate([address], chain.chainId);
-    }
-  };
-
-  public onSessionUpdate = async (accounts: string[], chainId: number) => {
-    const address = accounts[0];
-    await this.setState({ chainId, accounts, address });
-  };
 
   public resetApp = async () => {
     const { provider } = this.state;
@@ -381,7 +354,6 @@ class App extends React.Component<any, any> {
 
   public render = () => {
     const {
-      fetching,
       connected,
       address,
       chain,
@@ -399,13 +371,7 @@ class App extends React.Component<any, any> {
             killSession={this.resetApp}
           />
           <SContent>
-            {fetching ? (
-              <Column center>
-                <SContainer>
-                  <Loader />
-                </SContainer>
-              </Column>
-            ) : !paymentRequest ? (
+            {!paymentRequest ? (
               <SBalances>
                 <h3>Failed</h3>
                 <p>{`Payment request not supported or invalid`}</p>
