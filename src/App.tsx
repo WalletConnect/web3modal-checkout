@@ -20,6 +20,7 @@ import {
   parseQueryString,
   appendToQueryString,
   checkRequiredParams,
+  toHex
 } from "./helpers/utilities";
 import { IAssetData, IChainData, IPayment } from "./helpers/types";
 import { fonts } from "./styles";
@@ -157,6 +158,36 @@ class App extends React.Component<any, any> {
       address, //needed to render on home page
       chain
     });
+  }
+
+
+  public addNetwork = async () => {
+    try {
+      if (!this.state.paymentRequest) {
+        throw new Error("No payment request found");
+      }
+
+      const requiredChainId = this.state.paymentRequest!.chainId
+      const requiredChainDetails = SUPPORTED_CHAINS[requiredChainId]
+      const params = {
+        chainId: toHex(requiredChainId),
+        chainName: requiredChainDetails.name,
+        nativeCurrency: {
+          name: requiredChainDetails.nativeCurrency.name,
+          symbol: requiredChainDetails.nativeCurrency.symbol,
+          decimals: requiredChainDetails.nativeCurrency.decimals,
+        },
+        rpcUrls: [requiredChainDetails.rpcUrl],
+        blockExplorerUrls: [requiredChainDetails.blockExplorerUrl]
+      }
+
+      await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [params],
+      });
+    } catch (error) {
+      return this.displayErrorMessage(`Error occurred - ${error.message}`);
+    } 
   }
 
   public pay = async () => {
@@ -374,6 +405,13 @@ class App extends React.Component<any, any> {
       paymentRequest,
       paymentStatus,
     } = this.state;
+    const btn = 
+      paymentRequest ? 
+        chain?.chainId === paymentRequest!.chainId 
+          ? <ConnectButton label="Pay" onClick={this.pay} />
+          : <ConnectButton label="Add/Switch Network" onClick={this.addNetwork} />
+      : <div></div>
+    
     return (
       <SLayout>
         <Column maxWidth={1000} spanHeight>
@@ -398,9 +436,7 @@ class App extends React.Component<any, any> {
                   <span>{`${paymentRequest.amount} ${paymentRequest.currency}`}</span>
                   {` to ${paymentRequest.to} on ${SUPPORTED_CHAINS[paymentRequest.chainId].name} network`}
                 </SPaymentRequestDescription>
-                {!paymentStatus ? (
-                  <ConnectButton label="Pay" onClick={this.pay} />
-                ) : (
+                {!paymentStatus ? btn : (
                   <PaymentResult
                     height={300}
                     payment={paymentStatus}
