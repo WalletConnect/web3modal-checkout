@@ -13,7 +13,6 @@ import Authereum from "authereum";
 import Column from "./components/Column";
 import Wrapper from "./components/Wrapper";
 import Header from "./components/Header";
-import Loader from "./components/Loader";
 import ConnectButton from "./components/ConnectButton";
 import PaymentResult from "./components/PaymentResult";
 
@@ -29,7 +28,7 @@ import {
   PAYMENT_FAILURE,
   PAYMENT_PENDING,
 } from "./constants/paymentStatus";
-import { SUPPORTED_ASSETS, SUPPORTED_CHAINS } from "./constants/supported";
+import { RPC_URLS_FOR_SUPPORTED_CHAINS, SUPPORTED_ASSETS, SUPPORTED_CHAINS } from "./constants/supported";
 import { ERC20 } from "./helpers/abi";
 import { getChain } from "./helpers/chains";
 
@@ -44,16 +43,6 @@ const SContent = styled(Wrapper)`
   width: 100%;
   height: 100%;
   padding: 0 16px;
-`;
-
-const SContainer = styled.div`
-  height: 100%;
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  word-break: break-word;
 `;
 
 const SLanding = styled(Column as any)`
@@ -89,9 +78,8 @@ interface IPaymentRequest {
 }
 
 interface IAppState {
-  fetching: boolean;
   connected: boolean;
-  address: string;
+  address: string; //to render on homepage
   chain: IChainData | undefined;
   expectedNetwork: string;
   provider: providers.Web3Provider | undefined;
@@ -101,7 +89,6 @@ interface IAppState {
 }
 
 const INITIAL_STATE: IAppState = {
-  fetching: false,
   connected: false,
   address: "",
   chain: undefined,
@@ -136,38 +123,84 @@ class App extends React.Component<any, any> {
     });
   }
 
-  public onConnect = async () => {
+  // Connect on wallet on page load and subscribe to events.
+  async componentDidMount() {
     const web3Provider = await this.web3Modal.connect();
+    await this.connectToApp();
 
-    const provider = new providers.Web3Provider(web3Provider);
+    // Subscribe to events
+    web3Provider.on("disconnect", () => this.resetApp());
 
-    provider.on("disconnect", () => this.resetApp());
-
-    provider.on("accountsChanged", (accounts: string[]) =>
+    web3Provider.on("accountsChanged", async (accounts: string[]) => {
       this.setState({ address: accounts[0] })
-    );
+      await this.pay();
+    });
 
-    provider.on("chainChanged", async (chainId: number) => {
+    web3Provider.on("chainChanged", async (chainId: number) => {
       const chain = await getChain(`eip155:${chainId}`);
       this.setState({ chain });
+      await this.pay();
     });
+  };
 
-    const { chainId } = await provider.getNetwork();
-    const address = await provider.getSigner().getAddress();
 
+  public connectToApp = async () => {
+    const web3Provider = await this.web3Modal.connect();
+    const ethersProvider = new providers.Web3Provider(web3Provider, "any");
+    const { chainId } = await ethersProvider.getNetwork();
     const chain = await getChain(`eip155:${chainId}`);
+    const address = await ethersProvider.getSigner().getAddress();
 
-    await this.setState({
-      provider,
+    this.setState({
+      provider: ethersProvider,
       connected: true,
-      address,
-      chain,
+      address, //needed to render on home page
+      chain
     });
+  }
+
+  public pay = async () => {
+    if (!this.state.connected) {
+      await this.connectToApp();
+    }
     // check that the right chain was connected to!
-    if (this.state.paymentRequest && chainId !== this.state.paymentRequest!.chainId) {
-      return this.displayErrorMessage(`Please switch to ${this.state.expectedNetwork} and refresh this page`);
+    if (this.state.paymentRequest && this.state.chain!.chainId !== this.state.paymentRequest!.chainId) {
+      return this.displayErrorMessage(`Please switch to ${this.state.expectedNetwork}`);
     }
     await this.requestTransaction();
+  }
+
+  public getProviderOptions = () => {
+    const providerOptions = {
+      walletconnect: {
+        package: WalletConnectProvider,
+        options: {
+          infuraId: process.env.REACT_APP_INFURA_ID,
+          rpc: RPC_URLS_FOR_SUPPORTED_CHAINS, //for chain IDs that wallet connect hasn't configured infura for yet.
+        },
+      },
+      torus: {
+        package: Torus,
+        options: {},
+      },
+      fortmatic: {
+        package: Fortmatic,
+        options: {
+          key: process.env.REACT_APP_FORTMATIC_KEY,
+        },
+      },
+      portis: {
+        package: Portis,
+        options: {
+          id: process.env.REACT_APP_PORTIS_ID,
+        },
+      },
+      authereum: {
+        package: Authereum,
+        options: {},
+      },
+    };
+    return providerOptions;
   };
 
   public getPaymentRequest = () => {
@@ -201,38 +234,7 @@ class App extends React.Component<any, any> {
     return result;
   };
 
-  public getProviderOptions = () => {
-    const providerOptions = {
-      walletconnect: {
-        package: WalletConnectProvider,
-        options: {
-          infuraId: process.env.REACT_APP_INFURA_ID,
-        },
-      },
-      torus: {
-        package: Torus,
-        options: {},
-      },
-      fortmatic: {
-        package: Fortmatic,
-        options: {
-          key: process.env.REACT_APP_FORTMATIC_KEY,
-        },
-      },
-      portis: {
-        package: Portis,
-        options: {
-          id: process.env.REACT_APP_PORTIS_ID,
-        },
-      },
-      authereum: {
-        package: Authereum,
-        options: {},
-      },
-    };
-    return providerOptions;
-  };
-
+  
   public clearErrorMessage = () => this.setState({ errorMsg: "" });
 
   public displayErrorMessage = (errorMsg: string) => {
@@ -304,6 +306,9 @@ class App extends React.Component<any, any> {
         }
       } catch (error) {
         console.error(error);
+        if (error.data && error.data.message) {
+          return this.displayErrorMessage(error.data.message);
+        }
         return this.displayErrorMessage(error.message);
       }
     } else {
@@ -311,10 +316,11 @@ class App extends React.Component<any, any> {
     }
   };
 
-  public updatePaymentStatus = (status: string, result: any = undefined) =>
+  public updatePaymentStatus = (status: string, result: any = undefined) => {
     this.setState({ paymentStatus: { status, result } });
+  }
 
-  public redirectToCallbackUrl() {
+  public redirectToCallbackUrl = () => {
     const { paymentRequest, paymentStatus } = this.state;
     if (paymentRequest && paymentStatus) {
       if (typeof window !== "undefined") {
@@ -331,22 +337,6 @@ class App extends React.Component<any, any> {
       }
     }
   }
-
-  public checkCurrentAccount = async () => {
-    const { provider, chain } = this.state;
-    if (!provider || !chain) {
-      return;
-    }
-    const address = await provider.getSigner().getAddress();
-    if (address !== this.state.address) {
-      this.onSessionUpdate([address], chain.chainId);
-    }
-  };
-
-  public onSessionUpdate = async (accounts: string[], chainId: number) => {
-    const address = accounts[0];
-    await this.setState({ chainId, accounts, address });
-  };
 
   public resetApp = async () => {
     const { provider } = this.state;
@@ -367,7 +357,8 @@ class App extends React.Component<any, any> {
       const url = `${SUPPORTED_CHAINS[paymentRequest.chainId].blockExplorerUrl}/tx/${txHash}`;
       return (
         <SDisplayTxHash href={url} target="blank" rel="noreferrer noopener">
-          {txHash}
+          <hr />
+          Transaction Hash: {txHash}
         </SDisplayTxHash>
       );
     }
@@ -376,7 +367,6 @@ class App extends React.Component<any, any> {
 
   public render = () => {
     const {
-      fetching,
       connected,
       address,
       chain,
@@ -394,13 +384,7 @@ class App extends React.Component<any, any> {
             killSession={this.resetApp}
           />
           <SContent>
-            {fetching ? (
-              <Column center>
-                <SContainer>
-                  <Loader />
-                </SContainer>
-              </Column>
-            ) : !paymentRequest ? (
+            {!paymentRequest ? (
               <SBalances>
                 <h3>Failed</h3>
                 <p>{`Payment request not supported or invalid`}</p>
@@ -415,7 +399,7 @@ class App extends React.Component<any, any> {
                   {` to ${paymentRequest.to} on ${SUPPORTED_CHAINS[paymentRequest.chainId].name} network`}
                 </SPaymentRequestDescription>
                 {!paymentStatus ? (
-                  <ConnectButton label="Pay" onClick={this.onConnect} />
+                  <ConnectButton label="Pay" onClick={this.pay} />
                 ) : (
                   <PaymentResult
                     height={300}
