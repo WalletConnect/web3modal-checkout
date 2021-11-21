@@ -1,6 +1,6 @@
 import * as React from "react";
 import styled from "styled-components";
-import { BigNumber, Contract, providers, utils } from "ethers";
+import { providers } from "ethers";
 
 import Web3Modal from "web3modal";
 import { CHAIN_DATA_LIST } from "web3modal";
@@ -13,23 +13,15 @@ import Authereum from "authereum";
 import Column from "./components/Column";
 import Wrapper from "./components/Wrapper";
 import Header from "./components/Header";
-import ConnectButton from "./components/ConnectButton";
-import PaymentResult from "./components/PaymentResult";
+import Payment from "./components/Payment";
 
 import {
   parseQueryString,
-  appendToQueryString,
   checkRequiredParams,
 } from "./helpers/utilities";
-import { IAssetData, IChainData, IPayment } from "./helpers/types";
-import { fonts } from "./styles";
-import {
-  PAYMENT_SUCCESS,
-  PAYMENT_FAILURE,
-  PAYMENT_PENDING,
-} from "./constants/paymentStatus";
-import { RPC_URLS_FOR_SUPPORTED_CHAINS, SUPPORTED_ASSETS, SUPPORTED_CHAINS } from "./constants/supported";
-import { ERC20 } from "./helpers/abi";
+import { IChainData, IPaymentRequest} from "./helpers/types";
+
+import { RPC_URLS_FOR_SUPPORTED_CHAINS, SUPPORTED_CHAINS } from "./constants/supported";
 import { getChain } from "./helpers/chains";
 
 const SLayout = styled.div`
@@ -56,55 +48,27 @@ const SBalances = styled(SLanding as any)`
   }
 `;
 
-const SPaymentRequestDescription = styled.p`
-  & span {
-    font-weight: ${fonts.weight.bold};
-  }
-`;
-
-const SDisplayTxHash = styled.a`
-  cursor: pointer;
-  font-weight: ${fonts.weight.semibold};
-  font-family: ${fonts.family.RobotoMono};
-`;
-
-interface IPaymentRequest {
-  chainId: number;
-  currency: string;
-  amount: string;
-  to: string;
-  callbackUrl: string;
-  data: string;
-}
-
 interface IAppState {
   connected: boolean;
   address: string; //to render on homepage
   chain: IChainData | undefined;
-  expectedNetwork: string;
   provider: providers.Web3Provider | undefined;
   paymentRequest: IPaymentRequest | undefined;
-  paymentStatus: IPayment | undefined;
-  errorMsg: string;
 }
 
 const INITIAL_STATE: IAppState = {
   connected: false,
   address: "",
   chain: undefined,
-  expectedNetwork: "mainnet",
   provider: undefined,
   paymentRequest: undefined,
-  paymentStatus: undefined,
-  errorMsg: "",
 };
 
 let accountInterval: any = undefined;
 
-class App extends React.Component<any, any> {
+class App extends React.Component<any, IAppState> {
   // @ts-ignore
   public web3Modal: Web3Modal;
-  public state: IAppState;
 
   constructor(props: any) {
     super(props);
@@ -113,11 +77,12 @@ class App extends React.Component<any, any> {
       paymentRequest: this.getPaymentRequest(),
     };
     // if there is a payment network, set the expected Network (defaults to mainnet otherwise)
+    let expectedNetwork: string = "mainnet";
     if (this.state.paymentRequest) {
-      this.state.expectedNetwork = CHAIN_DATA_LIST[this.state.paymentRequest.chainId].network;
+      expectedNetwork = CHAIN_DATA_LIST[this.state.paymentRequest.chainId].network;
     }
     this.web3Modal = new Web3Modal({
-      network: this.state.expectedNetwork,
+      network: expectedNetwork,
       cacheProvider: true,
       providerOptions: this.getProviderOptions(),
     });
@@ -131,15 +96,13 @@ class App extends React.Component<any, any> {
     // Subscribe to events
     web3Provider.on("disconnect", () => this.resetApp());
 
-    web3Provider.on("accountsChanged", async (accounts: string[]) => {
+    web3Provider.on("accountsChanged", (accounts: string[]) => {
       this.setState({ address: accounts[0] })
-      await this.pay();
     });
 
     web3Provider.on("chainChanged", async (chainId: number) => {
       const chain = await getChain(`eip155:${chainId}`);
       this.setState({ chain });
-      await this.pay();
     });
   };
 
@@ -158,18 +121,7 @@ class App extends React.Component<any, any> {
       chain
     });
   }
-
-  public pay = async () => {
-    if (!this.state.connected) {
-      await this.connectToApp();
-    }
-    // check that the right chain was connected to!
-    if (this.state.paymentRequest && this.state.chain!.chainId !== this.state.paymentRequest!.chainId) {
-      return this.displayErrorMessage(`Please switch to ${this.state.expectedNetwork}`);
-    }
-    await this.requestTransaction();
-  }
-
+  
   public getProviderOptions = () => {
     const providerOptions = {
       walletconnect: {
@@ -203,6 +155,7 @@ class App extends React.Component<any, any> {
     return providerOptions;
   };
 
+  // Load URL params into object
   public getPaymentRequest = () => {
     let result: IPaymentRequest | undefined = undefined;
     if (typeof window !== "undefined") {
@@ -226,117 +179,12 @@ class App extends React.Component<any, any> {
             }
           } catch (error) {
             result = undefined;
-            console.error(error);
           }
         }
       }
     }
     return result;
   };
-
-  
-  public clearErrorMessage = () => this.setState({ errorMsg: "" });
-
-  public displayErrorMessage = (errorMsg: string) => {
-    this.setState({ errorMsg });
-    if (this.state.connected) {
-      this.updatePaymentStatus(PAYMENT_FAILURE);
-    }
-  };
-
-  public getAsset = (assetSymbol: string, chainId: number): IAssetData => {
-    let result: IAssetData | undefined = undefined;
-    if (SUPPORTED_ASSETS[chainId]) {
-      result = SUPPORTED_ASSETS[chainId][assetSymbol.toLowerCase()] || undefined;
-    }
-    if (typeof result === "undefined") {
-      throw new Error(`Asset request is not supported: ${assetSymbol}`);
-    }
-    return result;
-  };
-
-  public requestTransaction = async () => {
-    const { provider, paymentRequest } = this.state;
-    if (paymentRequest) {
-      const { amount, to, data, callbackUrl } = paymentRequest;
-      const assetSymbol = paymentRequest.currency.toLowerCase();
-      if (typeof provider === "undefined") {
-        return this.displayErrorMessage(
-          "Wallet Provider selected is unavailable"
-        );
-      }
-      let asset: IAssetData;
-      try {
-        asset = this.getAsset(assetSymbol, paymentRequest.chainId);
-      } catch (e) {
-        return this.displayErrorMessage(e.message);
-      }
-
-      this.updatePaymentStatus(PAYMENT_PENDING);
-      try {
-        let txHash: string | undefined = undefined;
-        if (asset.contractAddress) {
-          const contract = new Contract(
-            asset.contractAddress,
-            ERC20.abi,
-            provider.getSigner()
-          );
-          const tx = await contract.transfer(
-            to,
-            utils.parseUnits(amount, BigNumber.from(asset.decimals))
-          );
-          txHash = tx.hash;
-        } else {
-          const tx = await provider.getSigner().sendTransaction({
-            to,
-            value: utils.parseEther(amount),
-            data: data || "0x",
-          });
-          txHash = tx.hash;
-        }
-        if (typeof txHash === "undefined") {
-          return this.displayErrorMessage(`Failed or missing transaction`);
-        }
-        this.updatePaymentStatus(PAYMENT_SUCCESS, txHash);
-        if (callbackUrl) {
-          setTimeout(
-            () => this.redirectToCallbackUrl(),
-            2000 // 2 secs
-          );
-        }
-      } catch (error) {
-        console.error(error);
-        if (error.data && error.data.message) {
-          return this.displayErrorMessage(error.data.message);
-        }
-        return this.displayErrorMessage(error.message);
-      }
-    } else {
-      return this.displayErrorMessage("Payment request missing or invalid");
-    }
-  };
-
-  public updatePaymentStatus = (status: string, result: any = undefined) => {
-    this.setState({ paymentStatus: { status, result } });
-  }
-
-  public redirectToCallbackUrl = () => {
-    const { paymentRequest, paymentStatus } = this.state;
-    if (paymentRequest && paymentStatus) {
-      if (typeof window !== "undefined") {
-        // open callback if defined. decodeURIComponent returns string(undefiend).
-        if (paymentRequest.callbackUrl!=="undefined") {
-          const url = appendToQueryString(paymentRequest.callbackUrl, {
-            txhash: paymentStatus.result,
-            currency: paymentRequest.currency,
-          });        
-          window.open(url);
-        }
-      } else {
-        return this.displayErrorMessage("Window is undefined");
-      }
-    }
-  }
 
   public resetApp = async () => {
     const { provider } = this.state;
@@ -350,30 +198,29 @@ class App extends React.Component<any, any> {
     this.setState({ ...INITIAL_STATE });
   };
 
-  public renderTxHash = () => {
-    const { paymentRequest, paymentStatus } = this.state;
-    if (paymentRequest && paymentStatus) {
-      const txHash = paymentStatus.result;
-      const url = `${SUPPORTED_CHAINS[paymentRequest.chainId].blockExplorerUrl}/tx/${txHash}`;
-      return (
-        <SDisplayTxHash href={url} target="blank" rel="noreferrer noopener">
-          <hr />
-          Transaction Hash: {txHash}
-        </SDisplayTxHash>
-      );
-    }
-    return undefined;
-  };
-
   public render = () => {
     const {
       connected,
       address,
       chain,
-      errorMsg,
       paymentRequest,
-      paymentStatus,
+      provider
     } = this.state;
+
+    // Render payment component if connected and request present.
+    let toRender = <div></div>;
+    if (paymentRequest && connected) {
+      toRender = <Payment paymentRequest={paymentRequest} chain={chain} provider={provider}/>
+    }
+    else if (!paymentRequest) {
+      toRender = (
+        <SBalances>
+          <h3>Failed</h3>
+          <p>{`Payment request not supported or invalid`}</p>
+        </SBalances>
+      )
+    }
+
     return (
       <SLayout>
         <Column maxWidth={1000} spanHeight>
@@ -384,38 +231,7 @@ class App extends React.Component<any, any> {
             killSession={this.resetApp}
           />
           <SContent>
-            {!paymentRequest ? (
-              <SBalances>
-                <h3>Failed</h3>
-                <p>{`Payment request not supported or invalid`}</p>
-              </SBalances>
-            ) : (
-              <SLanding center>
-                <h3>{`Payment Request`}</h3>
-
-                <SPaymentRequestDescription>
-                  {`Paying `}
-                  <span>{`${paymentRequest.amount} ${paymentRequest.currency}`}</span>
-                  {` to ${paymentRequest.to} on ${SUPPORTED_CHAINS[paymentRequest.chainId].name} network`}
-                </SPaymentRequestDescription>
-                {!paymentStatus ? (
-                  <ConnectButton label="Pay" onClick={this.pay} />
-                ) : (
-                  <PaymentResult
-                    height={300}
-                    payment={paymentStatus}
-                    description={
-                      paymentStatus.status === PAYMENT_FAILURE && errorMsg
-                        ? errorMsg
-                        : ""
-                    }
-                  />
-                )}
-                {paymentStatus &&
-                  paymentStatus.status === PAYMENT_SUCCESS &&
-                  this.renderTxHash()}
-              </SLanding>
-            )}
+            {toRender}
           </SContent>
         </Column>
       </SLayout>

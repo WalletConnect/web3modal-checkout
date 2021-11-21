@@ -54,6 +54,15 @@ export interface ITxOperation {
   functionName: string;
 }
 
+export interface IPaymentRequest {
+  chainId: number;
+  currency: string;
+  amount: string;
+  to: string;
+  callbackUrl: string;
+  data: string;
+}
+
 export type IPaymentStatus = "pending" | "success" | "failure";
 
 export interface IPayment {
