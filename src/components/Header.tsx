@@ -53,26 +53,6 @@ const SAddress = styled.p<IHeaderStyle>`
   margin: ${({ connected }) => (connected ? "-2px auto 0.7em" : "0")};
 `;
 
-// const SDisconnect = styled.div<IHeaderStyle>`
-//   transition: ${transitions.button};
-//   font-size: 12px;
-//   font-family: monospace;
-//   position: absolute;
-//   right: 0;
-//   top: 20px;
-//   opacity: 0.7;
-//   cursor: pointer;
-
-//   opacity: ${({ connected }) => (connected ? 1 : 0)};
-//   visibility: ${({ connected }) => (connected ? "visible" : "hidden")};
-//   pointer-events: ${({ connected }) => (connected ? "auto" : "none")};
-
-//   &:hover {
-//     transform: translateY(-1px);
-//     opacity: 0.5;
-//   }
-// `;
-
 interface IHeaderProps {
   killSession: () => void;
   connected: boolean;
