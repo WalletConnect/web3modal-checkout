@@ -4,6 +4,11 @@ interface ISupportedChains {
   [chainId: number]: {
     name: string;
     chainId: number;
+    nativeCurrency: {
+      name: string;
+      symbol: string;
+      decimals: number;
+    };
     assets: string[];
     blockExplorerUrl: string;
     rpcUrl?: string; // used for walletconnect provider.
@@ -14,30 +19,55 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
   1: {
     name: "Ethereum",
     chainId: 1,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://etherscan.io",
   },
   3: {
     name: "Ethereum Ropsten Testnet",
     chainId: 3,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://ropsten.etherscan.io",
   },
   4: {
     name: "Ethereum Rinkeby Testnet",
     chainId: 4,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://rinkeby.etherscan.io",
   },
   5: {
     name: "Ethereum Goerli Testnet",
     chainId: 5,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://goerli.etherscan.io/",
   },
   10: {
     name: "Optimism Mainnet",
     chainId: 10,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://optimistic.etherscan.io",
     rpcUrl: "https://mainnet.optimism.io",
@@ -45,6 +75,11 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
   69: {
     name: "Optimism Kovan Testnet",
     chainId: 69,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://kovan-optimistic.etherscan.io",
     rpcUrl: "https://kovan.optimism.io",
@@ -52,12 +87,22 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
   100: {
     name: "xDAI",
     chainId: 100,
+    nativeCurrency: {
+      name: "Dai",
+      symbol: "DAI",
+      decimals: 18,
+    },
     assets: ["xdai"],
     blockExplorerUrl: "https://blockscout.com/poa/dai",
   },
   42161: {
     name: "Arbitrum Mainnet",
     chainId: 42161,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://arbiscan.io",
     rpcUrl: "https://arb1.arbitrum.io/rpc",
@@ -65,6 +110,11 @@ export const SUPPORTED_CHAINS: ISupportedChains = {
   421611: {
     name: "Arbitrum Rinkeby Testnet",
     chainId: 421611,
+    nativeCurrency: {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+    },
     assets: ["eth", "dai"],
     blockExplorerUrl: "https://rinkeby-explorer.arbitrum.io",
     rpcUrl: " https://rinkeby.arbitrum.io/rpc",

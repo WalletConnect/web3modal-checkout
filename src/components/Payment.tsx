@@ -16,6 +16,7 @@ import {
   PAYMENT_PENDING,
 } from "../constants/paymentStatus";
 import { SUPPORTED_ASSETS, SUPPORTED_CHAINS } from "../constants/supported";
+import { addOrSwitchChain } from "../helpers/chains";
 
 
 const SDisplayTxHash = styled.a`
@@ -51,19 +52,16 @@ class Payment extends React.Component<any, IPaymentState> {
     }
   }
 
-  async componentDidUpdate(prevProps, prevState) {
-    if (prevProps.chain !== this.props.chain) {
-      //chain changed. Try paying again:
-      await this.pay();
-    }
-}
-
   public pay = async () => {
-    const { chain, paymentRequest } = this.props;
+    const { chain, paymentRequest, web3ModalProvider } = this.props;
     // check that the right chain was connected to!
     if (paymentRequest && chain.chainId !== paymentRequest.chainId) {
-      this.displayErrorMessage("Please switch lol")
-      return ;
+      try {
+        await addOrSwitchChain(web3ModalProvider, paymentRequest.chainId);
+      } catch (error) {
+        //@ts-ignore
+        this.displayErrorMessage(`Error while switching chains: ${error.message}`)
+      }
     }
     await this.requestTransaction();
   }
@@ -81,11 +79,11 @@ class Payment extends React.Component<any, IPaymentState> {
   };
 
   public requestTransaction = async () => {
-    const { provider, paymentRequest } = this.props;
+    const { ethersProvider, paymentRequest } = this.props;
     if (paymentRequest) {
       const { amount, to, data, callbackUrl } = paymentRequest;
       const assetSymbol = paymentRequest.currency.toLowerCase();
-      if (typeof provider === "undefined") {
+      if (typeof ethersProvider === "undefined") {
         return this.displayErrorMessage(
           "Wallet Provider selected is unavailable"
         );
@@ -106,7 +104,7 @@ class Payment extends React.Component<any, IPaymentState> {
           const contract = new Contract(
             asset.contractAddress,
             ERC20.abi,
-            provider.getSigner()
+            ethersProvider.getSigner()
           );
           const tx = await contract.transfer(
             to,
@@ -114,7 +112,7 @@ class Payment extends React.Component<any, IPaymentState> {
           );
           txHash = tx.hash;
         } else { // crypto transfer
-          const tx = await provider.getSigner().sendTransaction({
+          const tx = await ethersProvider.getSigner().sendTransaction({
             to,
             value: utils.parseEther(amount),
             data: data || "0x",

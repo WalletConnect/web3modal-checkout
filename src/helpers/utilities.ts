@@ -5,6 +5,10 @@ export function capitalize(string: string): string {
     .join(" ");
 }
 
+export function toHex(num: number) {
+  return '0x'+num.toString(16)
+}
+
 export function ellipseText(
   text: string = "",
   maxLength: number = 9999
