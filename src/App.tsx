@@ -13,16 +13,17 @@ import Authereum from "authereum";
 import Column from "./components/Column";
 import Wrapper from "./components/Wrapper";
 import Header from "./components/Header";
-import Payment from "./components/Payment";
 
 import {
   parseQueryString,
-  checkRequiredParams,
+  checkRequiredParams
 } from "./helpers/utilities";
 import { IChainData, IPaymentRequest} from "./helpers/types";
 
 import { RPC_URLS_FOR_SUPPORTED_CHAINS, SUPPORTED_CHAINS } from "./constants/supported";
-import { getChain } from "./helpers/chains";
+import { addOrSwitchChain, getChain } from "./helpers/chains";
+import Payment from "./components/Payment";
+import ConnectButton from "./components/ConnectButton";
 
 const SLayout = styled.div`
   position: relative;
@@ -52,16 +53,20 @@ interface IAppState {
   connected: boolean;
   address: string; //to render on homepage
   chain: IChainData | undefined;
-  provider: providers.Web3Provider | undefined;
+  ethersProvider: providers.Web3Provider | undefined;
+  web3ModalProvider: any //needed for chain switch/add
   paymentRequest: IPaymentRequest | undefined;
+  correctChain: boolean;
 }
 
 const INITIAL_STATE: IAppState = {
   connected: false,
   address: "",
   chain: undefined,
-  provider: undefined,
+  ethersProvider: undefined,
+  web3ModalProvider: undefined,
   paymentRequest: undefined,
+  correctChain: false,
 };
 
 let accountInterval: any = undefined;
@@ -90,38 +95,43 @@ class App extends React.Component<any, IAppState> {
 
   // Connect on wallet on page load and subscribe to events.
   async componentDidMount() {
-    const web3Provider = await this.web3Modal.connect();
+    const web3ModalProvider = await this.web3Modal.connect();
     await this.connectToApp();
 
     // Subscribe to events
-    web3Provider.on("disconnect", () => this.resetApp());
+    web3ModalProvider.on("disconnect", () => this.resetApp());
 
-    web3Provider.on("accountsChanged", (accounts: string[]) => {
+    web3ModalProvider.on("accountsChanged", (accounts: string[]) => {
       this.setState({ address: accounts[0] })
     });
 
-    web3Provider.on("chainChanged", async (chainId: number) => {
+    web3ModalProvider.on("chainChanged", async (chainId: number) => {
       const chain = await getChain(`eip155:${chainId}`);
-      this.setState({ chain });
+      const expectedChainId = this.state.paymentRequest!.chainId;
+      this.setState({ 
+        chain: chain,
+        correctChain: chain.chainId === expectedChainId,
+      });
     });
   };
 
-
   public connectToApp = async () => {
-    const web3Provider = await this.web3Modal.connect();
-    const ethersProvider = new providers.Web3Provider(web3Provider, "any");
+    const web3ModalProvider = await this.web3Modal.connect();
+    const ethersProvider = new providers.Web3Provider(web3ModalProvider, "any");
     const { chainId } = await ethersProvider.getNetwork();
     const chain = await getChain(`eip155:${chainId}`);
     const address = await ethersProvider.getSigner().getAddress();
 
     this.setState({
-      provider: ethersProvider,
+      ethersProvider,
+      web3ModalProvider, //needed for chain switch/add
       connected: true,
       address, //needed to render on home page
-      chain
+      chain,
+      correctChain: chainId === this.state.paymentRequest?.chainId
     });
   }
-  
+
   public getProviderOptions = () => {
     const providerOptions = {
       walletconnect: {
@@ -186,13 +196,22 @@ class App extends React.Component<any, IAppState> {
     return result;
   };
 
+  public addOrSwitchChain = async () => {
+    const { web3ModalProvider, paymentRequest } = this.state;
+    if (!paymentRequest) {
+      console.error("No payment request found");
+    } else {
+      await addOrSwitchChain(web3ModalProvider, paymentRequest.chainId, CHAIN_DATA_LIST[paymentRequest.chainId].network);
+    }
+  } 
+
   public resetApp = async () => {
-    const { provider } = this.state;
+    const { ethersProvider } = this.state;
     if (
-      provider &&
-      (provider.provider as WalletConnectProvider).isWalletConnect
+      ethersProvider &&
+      (ethersProvider.provider as WalletConnectProvider).isWalletConnect
     ) {
-      await (provider.provider as WalletConnectProvider).close();
+      await (ethersProvider.provider as WalletConnectProvider).close();
     }
     clearInterval(accountInterval);
     this.setState({ ...INITIAL_STATE });
@@ -204,13 +223,31 @@ class App extends React.Component<any, IAppState> {
       address,
       chain,
       paymentRequest,
-      provider
+      ethersProvider,
+      web3ModalProvider,
+      correctChain
     } = this.state;
 
     // Render payment component if connected and request present.
     let toRender = <div></div>;
     if (paymentRequest && connected) {
-      toRender = <Payment paymentRequest={paymentRequest} chain={chain} provider={provider}/>
+      if (correctChain) {
+        toRender = (
+          <Payment 
+            paymentRequest={paymentRequest} 
+            chain={chain} 
+            ethersProvider={ethersProvider}
+            web3ModalProvider={web3ModalProvider} />
+        )
+      } else 
+        toRender = (
+          <SLanding center>
+            <h3>Payment Request</h3>
+
+            <p>To fulfill the payment request please switch your blockchain network to <b>{SUPPORTED_CHAINS[paymentRequest.chainId].name}</b></p>
+            <ConnectButton label="Switch Network" onClick={this.addOrSwitchChain}/>
+          </SLanding>
+        )
     }
     else if (!paymentRequest) {
       toRender = (
@@ -220,7 +257,7 @@ class App extends React.Component<any, IAppState> {
         </SBalances>
       )
     }
-
+    
     return (
       <SLayout>
         <Column maxWidth={1000} spanHeight>

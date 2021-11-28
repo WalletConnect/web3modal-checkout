@@ -16,6 +16,7 @@ import {
   PAYMENT_PENDING,
 } from "../constants/paymentStatus";
 import { SUPPORTED_ASSETS, SUPPORTED_CHAINS } from "../constants/supported";
+import { addOrSwitchChain } from "../helpers/chains";
 
 
 const SDisplayTxHash = styled.a`
@@ -51,25 +52,22 @@ class Payment extends React.Component<any, IPaymentState> {
     }
   }
 
-  async componentDidUpdate(prevProps, prevState) {
-    if (prevProps.chain !== this.props.chain) {
-      //chain changed. Try paying again:
-      await this.pay();
-    }
-}
-
   public pay = async () => {
-    const { chain, paymentRequest } = this.props;
+    const { chain, paymentRequest, web3ModalProvider } = this.props;
     // check that the right chain was connected to!
     if (paymentRequest && chain.chainId !== paymentRequest.chainId) {
-      this.displayErrorMessage("Please switch lol")
-      return ;
+      try {
+        await addOrSwitchChain(web3ModalProvider, paymentRequest.chainId);
+      } catch (error) {
+        //@ts-ignore
+        this.displayErrorMessage(`Error while switching chains: ${error.message}`)
+      }
     }
     await this.requestTransaction();
   }
   
   // Get asset details from constants based on chainID and token symbol.
-  public getAsset = (assetSymbol: string, chainId: number): IAssetData => {
+  private getAsset = (assetSymbol: string, chainId: number): IAssetData => {
     let result: IAssetData | undefined = undefined;
     if (SUPPORTED_ASSETS[chainId]) {
       result = SUPPORTED_ASSETS[chainId][assetSymbol.toLowerCase()] || undefined;
@@ -80,12 +78,12 @@ class Payment extends React.Component<any, IPaymentState> {
     return result;
   };
 
-  public requestTransaction = async () => {
-    const { provider, paymentRequest } = this.props;
+  private requestTransaction = async () => {
+    const { ethersProvider, paymentRequest } = this.props;
     if (paymentRequest) {
       const { amount, to, data, callbackUrl } = paymentRequest;
       const assetSymbol = paymentRequest.currency.toLowerCase();
-      if (typeof provider === "undefined") {
+      if (typeof ethersProvider === "undefined") {
         return this.displayErrorMessage(
           "Wallet Provider selected is unavailable"
         );
@@ -95,6 +93,7 @@ class Payment extends React.Component<any, IPaymentState> {
       try {
         asset = this.getAsset(assetSymbol, paymentRequest.chainId);
       } catch (e) {
+        //@ts-ignore
         return this.displayErrorMessage(e.message);
       }
 
@@ -106,7 +105,7 @@ class Payment extends React.Component<any, IPaymentState> {
           const contract = new Contract(
             asset.contractAddress,
             ERC20.abi,
-            provider.getSigner()
+            ethersProvider.getSigner()
           );
           const tx = await contract.transfer(
             to,
@@ -114,7 +113,7 @@ class Payment extends React.Component<any, IPaymentState> {
           );
           txHash = tx.hash;
         } else { // crypto transfer
-          const tx = await provider.getSigner().sendTransaction({
+          const tx = await ethersProvider.getSigner().sendTransaction({
             to,
             value: utils.parseEther(amount),
             data: data || "0x",
@@ -133,10 +132,13 @@ class Payment extends React.Component<any, IPaymentState> {
         }
       } catch (error) {
         console.error(error);
+        //@ts-ignore
         if (error.data && error.data.message) {
           // Get better error message
+          //@ts-ignore
           return this.displayErrorMessage(error.data.message);
         }
+        //@ts-ignore
         return this.displayErrorMessage(error.message);
       }
     } else {
@@ -144,7 +146,7 @@ class Payment extends React.Component<any, IPaymentState> {
     }
   };
 
-  public updatePaymentStatus = (status: string, result: any = undefined) => {
+  private updatePaymentStatus = (status: string, result: any = undefined) => {
     this.setState({ 
       paymentStatus: { 
         status: status as IPaymentStatus, 
@@ -153,7 +155,7 @@ class Payment extends React.Component<any, IPaymentState> {
     });
   }
 
-  public redirectToCallbackUrl = () => {
+  private redirectToCallbackUrl = () => {
     const { paymentRequest } = this.props;
     const { paymentStatus } = this.state;
 
@@ -173,12 +175,12 @@ class Payment extends React.Component<any, IPaymentState> {
     }
   }
 
-  public displayErrorMessage = (errorMsg: string) => {
+  private displayErrorMessage = (errorMsg: string) => {
     this.setState({ errorMsg: errorMsg });
     this.updatePaymentStatus(PAYMENT_FAILURE);
   };
 
-  public renderTxHash = () => {
+  private renderTxHash = () => {
     const { paymentRequest } = this.props;
     const { paymentStatus } = this.state;
 
