@@ -67,7 +67,7 @@ class Payment extends React.Component<any, IPaymentState> {
   }
   
   // Get asset details from constants based on chainID and token symbol.
-  public getAsset = (assetSymbol: string, chainId: number): IAssetData => {
+  private getAsset = (assetSymbol: string, chainId: number): IAssetData => {
     let result: IAssetData | undefined = undefined;
     if (SUPPORTED_ASSETS[chainId]) {
       result = SUPPORTED_ASSETS[chainId][assetSymbol.toLowerCase()] || undefined;
@@ -78,7 +78,7 @@ class Payment extends React.Component<any, IPaymentState> {
     return result;
   };
 
-  public requestTransaction = async () => {
+  private requestTransaction = async () => {
     const { ethersProvider, paymentRequest } = this.props;
     if (paymentRequest) {
       const { amount, to, data, callbackUrl } = paymentRequest;
@@ -93,6 +93,7 @@ class Payment extends React.Component<any, IPaymentState> {
       try {
         asset = this.getAsset(assetSymbol, paymentRequest.chainId);
       } catch (e) {
+        //@ts-ignore
         return this.displayErrorMessage(e.message);
       }
 
@@ -131,10 +132,13 @@ class Payment extends React.Component<any, IPaymentState> {
         }
       } catch (error) {
         console.error(error);
+        //@ts-ignore
         if (error.data && error.data.message) {
           // Get better error message
+          //@ts-ignore
           return this.displayErrorMessage(error.data.message);
         }
+        //@ts-ignore
         return this.displayErrorMessage(error.message);
       }
     } else {
@@ -142,7 +146,7 @@ class Payment extends React.Component<any, IPaymentState> {
     }
   };
 
-  public updatePaymentStatus = (status: string, result: any = undefined) => {
+  private updatePaymentStatus = (status: string, result: any = undefined) => {
     this.setState({ 
       paymentStatus: { 
         status: status as IPaymentStatus, 
@@ -151,7 +155,7 @@ class Payment extends React.Component<any, IPaymentState> {
     });
   }
 
-  public redirectToCallbackUrl = () => {
+  private redirectToCallbackUrl = () => {
     const { paymentRequest } = this.props;
     const { paymentStatus } = this.state;
 
@@ -171,12 +175,12 @@ class Payment extends React.Component<any, IPaymentState> {
     }
   }
 
-  public displayErrorMessage = (errorMsg: string) => {
+  private displayErrorMessage = (errorMsg: string) => {
     this.setState({ errorMsg: errorMsg });
     this.updatePaymentStatus(PAYMENT_FAILURE);
   };
 
-  public renderTxHash = () => {
+  private renderTxHash = () => {
     const { paymentRequest } = this.props;
     const { paymentStatus } = this.state;
 
