@@ -55,8 +55,24 @@ export async function addOrSwitchChain(web3ModalProvider: any, requiredChainId: 
     blockExplorerUrls: [requiredChainDetails.blockExplorerUrl]
   }
 
-  await web3ModalProvider.request({
-      method: 'wallet_addEthereumChain',
-      params: [params],
-  });
+  try {
+    await web3ModalProvider.request({
+        method: 'wallet_addEthereumChain',
+        params: [params],
+    });
+  } catch (err) {
+    //@ts-ignore
+    // Metamask throws error if switching to default chain using `wallet_addEthereumChain`
+    if (err.code === -32602 || err.message === "May not specify default MetaMask chain.") {
+      // refer https://eips.ethereum.org/EIPS/eip-3326
+      await web3ModalProvider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{
+          chainId: params.chainId
+        }]
+      });
+    } else {
+      throw err;
+    }
+  }
 }
