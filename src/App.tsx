@@ -99,8 +99,6 @@ class App extends React.Component<any, IAppState> {
     await this.connectToApp();
 
     // Subscribe to events
-    web3ModalProvider.on("disconnect", () => this.resetApp());
-
     web3ModalProvider.on("accountsChanged", (accounts: string[]) => {
       this.setState({ address: accounts[0] })
     });
