@@ -234,6 +234,12 @@ export const SUPPORTED_ASSETS: ISupportedAssets = {
       decimals: "18",
       contractAddress: ""
     },
+    dai: {
+      symbol: "DAI",
+      name: "DAI Stablecoin",
+      decimals: "18",
+      contractAddress: "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1",
+    },
   },
   42161: {
     eth: {
@@ -241,6 +247,12 @@ export const SUPPORTED_ASSETS: ISupportedAssets = {
       name: "Ethereum",
       decimals: "18",
       contractAddress: "",
+    },
+    dai: {
+      symbol: "DAI",
+      name: "DAI Stablecoin",
+      decimals: "18",
+      contractAddress: "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1",
     },
   },
 };
